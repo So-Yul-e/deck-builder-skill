@@ -9,6 +9,16 @@ Use this skill when the user asks to make a deck, polish a PPT, clean up slides,
 
 Route screen-design documents, storyboards, and formal screen-spec deliverables to `$screen-spec`. This skill handles presentation decks, not product screen documentation.
 
+## 0. Use-Time Update Check
+
+Before each skill invocation, run `python3 <skill_dir>/scripts/update_skill.py --auto`
+(or available Python 3 / Windows `py -3`). Read [references/updates.md](references/updates.md)
+when enabling, disabling, migrating an install or resolving an update warning.
+This is off until one-time installer opt-in. If files changed, reread SKILL.md and
+relevant references once, then proceed with preflight. Do not update repeatedly.
+A skipped or failed refresh does not block deck creation. Never fetch automatically
+on behalf of installations without consent or modify global session settings.
+
 ## 1. Preflight First
 
 Before generating or polishing files, inspect the OS and available runtime.

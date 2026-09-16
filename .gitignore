@@ -13,3 +13,6 @@ deck/assets/fonts/*.tmp
 
 # Local task notes
 work_log/
+
+# Per-install update consent and cache
+deck/.deck-update.json

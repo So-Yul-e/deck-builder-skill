@@ -127,6 +127,22 @@ Use $deck to create an executive project report with a roadmap, KPIs, and releas
 Use $deck to polish this PPTX without changing its content or moving its layout boxes.
 ```
 
+## Image Directions and Updates
+
+Create 2–3 previews using subject-specific photographs, screenshots, or generated illustrations, with different compositions and the same underlying claims. See [imagery guidance](deck/references/imagery.md) and [the comparison example](examples/build_image_direction_previews.py). Image generation depends on the host's available tools.
+
+For an official clone-and-link installation, enable updates once:
+
+```bash
+python3 deck/scripts/update_skill.py --enable
+python3 deck/scripts/update_skill.py --check
+python3 deck/scripts/update_skill.py --disable
+```
+
+The skill checks for updates when invoked, with remote checks limited to once per hour. Only clean official `main` checkouts can fast-forward; local edits, divergence, other branches, and offline states skip updating. On Windows use `py -3` or `python`. Copied installations require reinstalling or migrating to a linked clone. Existing installations need one manual refresh to acquire the updater. No global session hook is installed. See [update boundaries](deck/references/updates.md).
+
+Current Codex documentation uses `~/.agents/skills` for user skills and supports linked folders; retain an existing compatible installation path where your host requires it. [Official skill documentation](https://learn.chatgpt.com/docs/build-skills).
+
 ## How It Works
 
 ```text

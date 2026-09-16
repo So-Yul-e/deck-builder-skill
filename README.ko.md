@@ -125,6 +125,38 @@ $deck으로 로드맵, KPI, 릴리즈 게이트가 포함된 임원 프로젝트
 $deck으로 이 PPTX의 내용과 박스 위치는 바꾸지 말고 시각적으로 정리해줘.
 ```
 
+## 이미지 방향 선택과 업데이트
+
+주제에 맞는 실제 화면·사진 또는 생성 이미지를 포함한 시안을 2~3개 비교하고,
+고른 방향으로 전체 덱을 만들 수 있습니다. 색만 바꾸는 대신 이미지 소재와
+배치를 함께 달리하고, 같은 문구와 데이터를 유지합니다. 이미지 생성·검색은
+설치한 에이전트의 해당 도구가 필요하며 스킬 자체가 이미지 API를 번들하지는 않습니다.
+제작 계약은 [이미지 가이드](deck/references/imagery.md), 시안 재현 코드는
+[이미지 방향 생성기](examples/build_image_direction_previews.py)에 있습니다.
+
+자동 업데이트는 **공식 저장소의 깨끗한 main clone에 연결한 설치본**에서
+한 번 켤 수 있습니다. 활성화하면 에이전트가 스킬을 사용할 때 확인하며, 원격
+확인은 1시간에 한 번입니다. 로컬 수정·갈라진 이력·다른 브랜치·오프라인이면
+업데이트를 건너뛰고 덱 제작을 계속합니다.
+
+```bash
+python3 deck/scripts/update_skill.py --enable
+python3 deck/scripts/update_skill.py --check
+python3 deck/scripts/update_skill.py --disable
+```
+
+위 명령은 해당 clone에서 실행합니다. Windows는 `py -3` 또는 `python`을
+사용하세요. 복사 설치본은 이 기능으로 갱신할 수 없으므로 재설치하거나 clone에
+연결해야 합니다. 기존 설치본은 새 실행기를 받는 최초 한 번의 수동 갱신이
+필요합니다. 실행 중인 모든 세션에 전역 훅을 설치하지 않습니다.
+[업데이트 가이드](deck/references/updates.md)에 동작과 한계를 설명했습니다.
+
+현재 Codex 공식 문서의 사용자 스킬 위치는 `~/.agents/skills`이며 링크된
+폴더를 지원합니다. 기존 Codex 환경에서 `~/.codex/skills`를 사용하고 있다면
+해당 환경의 호환 경로를 유지할 수 있습니다. 로컬 파일 변경 감지는 GitHub에서
+새 코드를 내려받는 동작과 다릅니다.
+[공식 스킬 문서](https://learn.chatgpt.com/docs/build-skills)를 확인하세요.
+
 ## 동작 방식
 
 ```text
