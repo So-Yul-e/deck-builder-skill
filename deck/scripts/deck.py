@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-deck 스킬 — 고정 테마 빌더.
+deck 스킬 — 선택형 컨셉 빌더.
 
-색·여백·타이포는 여기 잠겨 있다. 덱 작성자는 빌더만 호출한다.
+컨셉의 색·표지·헤더 규칙은 여기 정의된다. 덱 작성자는 컨셉과 빌더를 선택한다.
 시각 빌더(flow·timeline·chart·matrix·shots·progress)는 전부 **도형·네이티브
 차트**로 그린다. 래스터 이미지가 아니라서 PowerPoint에서 그대로 편집되고,
 테마 색을 따라간다.
@@ -32,6 +32,19 @@ PALETTES = {
                    pale="C6D6EA", rule="E5E5EA"),
     "mono":   dict(deep="1A1A1A", key="2C2C2C", sub="6E6E73", tint="F2F2F4",
                    pale="D2D2D7", rule="E5E5EA"),
+}
+# Palette and cover/header metrics are owned by this table.
+CONCEPTS = {
+    "report": dict(palette="indigo", title_size=30, cover=(2.72, 1.4, 50), subtitle_y=4.22),
+    "poster": dict(palette=dict(deep="E84A27", key="B93218", sub="592218", tint="FFF0E9",
+                               pale="FFFFFF", rule="E7D9D4"),
+                   title_size=36, cover=(1.25, 2.5, 60), subtitle_y=4.6),
+    "editorial": dict(palette=dict(deep="183E36", key="245C4F", sub="8B583C", tint="EDF3EF",
+                                  pale="DEE9E1", rule="D5DFD8"),
+                      title_size=28, cover=(1.8, 2.3, 48), subtitle_y=4.35),
+    "showcase": dict(palette=dict(deep="152238", key="2457C5", sub="4871B9", tint="EFF4FD",
+                                 pale="D5E2F5", rule="DCE3EF"),
+                     title_size=28, cover=(1.65, 2.5, 46), subtitle_y=4.6),
 }
 INK = RGBColor(0x1C, 0x1C, 0x1E)
 MUTE = RGBColor(0x6E, 0x6E, 0x73)   # 흰 배경 5.07:1 (구 8E8E93은 3.26:1로 본문 기준 미달)
@@ -133,8 +146,15 @@ BOTTOM = SH - Inches(1.15)   # 푸터 룰 위. 콘텐츠는 여기까지 쓴다.
 
 
 class Deck:
-    def __init__(self, palette="indigo", footer=""):
-        p = PALETTES.get(palette, palette) if isinstance(palette, str) else palette
+    def __init__(self, palette=None, footer="", concept="report"):
+        if concept not in CONCEPTS:
+            raise ValueError(f"Unknown concept: {concept}. Choose from {', '.join(CONCEPTS)}")
+        self.concept = concept
+        self.style = CONCEPTS[concept]
+        palette = self.style["palette"] if palette is None else palette
+        if isinstance(palette, str) and palette not in PALETTES:
+            raise ValueError(f"Unknown palette: {palette}")
+        p = PALETTES[palette] if isinstance(palette, str) else palette
         self.C = {k: RGBColor.from_string(v) for k, v in p.items()}
         self.prs = Presentation()
         self.prs.slide_width, self.prs.slide_height = SW, SH
@@ -207,7 +227,9 @@ class Deck:
             self._txt(s, M + Inches(0.22), Inches(0.72), Inches(7), Inches(0.42),
                       [(eyebrow.upper(), T_META, True, self.C["key"])],
                       anchor=MSO_ANCHOR.MIDDLE)
-        self._txt(s, M, Inches(1.26), CW, Inches(0.8), [(title, T_TITLE, True, INK)])
+        self._txt(s, M, Inches(1.26), CW, Inches(0.8), [(title, T_TITLE if self.concept == "report" else self.style["title_size"], True, INK)])
+        if self.concept == "editorial":
+            self._rect(s, M, Inches(1.12), CW, Emu(9525), fill=self.C["key"])
         y = Inches(2.25)
         if lead:
             self._txt(s, M, Inches(2.05), CW, Inches(0.5), [(lead, T_LEAD, False, MUTE)])
@@ -231,17 +253,113 @@ class Deck:
         return self.C["key"] if i == hot else self.C["sub"]
 
     # ── 텍스트 슬라이드 ────────────────────────────────────────────
-    def cover(self, title, subtitle="", meta=""):
-        s = self._blank(dark=True)
-        self._rect(s, M, Inches(2.35), Inches(0.9), Inches(0.06), fill=self.C["sub"])
-        self._txt(s, M, Inches(2.72), CW, Inches(1.4),
-                  [(title, T_COVER, True, WHITE)], ls=1.15)
+    def compose(self, elements, background="white"):
+        """Editable content-led layout. Inches, named colors, no automatic copy edits."""
+        import math
+        colors = dict(self.C, ink=INK, mute=MUTE, white=WHITE)
+        if background not in colors:
+            raise ValueError(f"Unknown background token: {background}")
+        prepared = []
+        for element in elements:
+            e = dict(element)
+            kind = e.get("kind")
+            if kind not in ("text", "rect", "image"):
+                raise ValueError(f"Unknown element kind: {kind}")
+            values = [float(e[name]) for name in ("x", "y", "w", "h")]
+            x, y, w, h = values
+            if not all(math.isfinite(v) for v in values) or min(x, y) < 0 or min(w, h) <= 0:
+                raise ValueError("Element needs finite positive dimensions and nonnegative positions")
+            if x + w > SW / 914400 + 1e-6 or y + h > SH / 914400 + 1e-6:
+                raise ValueError("Element exceeds slide bounds")
+            e.update(zip(("x", "y", "w", "h"), values))
+            if kind != "image":
+                color = e.get("color", "ink")
+                if color not in colors:
+                    raise ValueError(f"Unknown color token: {color}")
+                e["rgb"] = colors[color]
+            if kind == "text":
+                size = float(e.get("size", 19))
+                if not math.isfinite(size) or size <= 0:
+                    raise ValueError("Font size must be positive")
+                lines = []
+                for paragraph in str(e["text"]).split("\n"):
+                    line = ""
+                    for character in paragraph:
+                        if measure_pt(character, size, e.get("bold", False)) > w * 72 / 1.12:
+                            raise ValueError("A glyph is wider than its text box")
+                        if line and measure_pt(line + character, size, e.get("bold", False)) > w * 72 / 1.12:
+                            lines.append(line)
+                            line = ""
+                        line += character
+                    lines.append(line)
+                if len(lines) * size * 1.25 / 72 > h:
+                    raise ValueError(f"Text does not fit: {e['text']!r}; enlarge box or split slide")
+                e["wrapped"] = "\n".join(lines)
+                e["size"] = size
+            elif kind == "image":
+                from PIL import Image
+                with Image.open(e["path"]) as img:
+                    iw, ih = img.size
+                scale = min(w / iw, h / ih)
+                e["image_w"], e["image_h"] = iw * scale, ih * scale
+            prepared.append(e)
+        # Validate all elements before adding a slide, so failures leave no partial slide.
+        s = self._blank()
+        s.background.fill.solid()
+        s.background.fill.fore_color.rgb = colors[background]
+        for e in prepared:
+            x, y, w, h = [Inches(e[name]) for name in ("x", "y", "w", "h")]
+            if e["kind"] == "text":
+                self._txt(s, x, y, w, h, [(e["wrapped"], e["size"], e.get("bold", False), e["rgb"])], ls=1.15)
+            elif e["kind"] == "rect":
+                shape = self._rect(s, x, y, w, h, fill=e["rgb"])
+                # Empty direct effects override Office theme shadows on native shapes.
+                from pptx.oxml.xmlchemy import OxmlElement
+                properties = shape._element.spPr
+                for effects in list(properties):
+                    if effects.tag.rsplit("}", 1)[-1] in ("effectLst", "effectDag"):
+                        properties.remove(effects)
+                properties.append(OxmlElement("a:effectLst"))
+                for reference in shape._element.xpath(".//a:effectRef"):
+                    reference.set("idx", "0")
+            else:
+                iw, ih = Inches(e["image_w"]), Inches(e["image_h"])
+                s.shapes.add_picture(str(e["path"]), int(x + (w - iw) / 2), int(y + (h - ih) / 2), width=iw, height=ih)
+        return s
+
+    def cover(self, title, subtitle="", meta="", image=None):
+        editorial = self.concept == "editorial"
+        s = self._blank(dark=not editorial)
+        width = CW
+        text_color = INK if editorial else WHITE
+        secondary = MUTE if editorial else self.C["pale"]
+        if self.concept == "report" and image is None:
+            self._rect(s, M, Inches(2.35), Inches(0.9), Inches(0.06), fill=self.C["sub"])
+        if editorial:
+            self._rect(s, SW * 0.72, 0, SW * 0.28, SH, fill=self.C["deep"])
+            width = SW * 0.72 - M * 2
+        if image is not None:
+            width = SW * 0.48 - M * 1.5
+            panel_x = SW * 0.52
+            self._rect(s, panel_x, 0, SW - panel_x, SH, fill=self.C["tint"])
+            if image is not None:
+                from PIL import Image
+                with Image.open(image) as img:
+                    iw, ih = img.size
+                available_w, available_h = SW - panel_x - M, SH - M * 2
+                scale = min(available_w / iw, available_h / ih)
+                w, h = int(iw * scale), int(ih * scale)
+                s.shapes.add_picture(str(image), int(panel_x + (SW - panel_x - w) / 2),
+                                     int((SH - h) / 2), width=w, height=h)
+        y, height, size = self.style["cover"]
+        self._txt(s, M, Inches(y), width, Inches(height),
+                  [(title, size, True, text_color)], ls=1.15)
         if subtitle:
-            self._txt(s, M, Inches(4.22), CW, Inches(0.6),
-                      [(subtitle, T_LEAD, False, self.C["pale"])])
+            self._txt(s, M, Inches(self.style["subtitle_y"]), width, Inches(1.0 if self.concept != "report" or image else 0.6),
+                      [(subtitle, T_LEAD, False, secondary)])
         if meta:
-            self._txt(s, M, SH - Inches(1.05), CW, Inches(0.4),
-                      [(meta, T_SMALL, False, self.C["pale"])])
+            self._txt(s, M, SH - Inches(1.05), width, Inches(0.4),
+                      [(meta, T_SMALL, False, secondary)])
         return s
 
     def section(self, number, title, lead=""):
@@ -293,6 +411,18 @@ class Deck:
         """items = [(라벨, 값, 설명)] 최대 4."""
         s = self._blank()
         y = self._head(s, title, eyebrow, lead)
+        if self.concept == "editorial" and items:
+            row_h = min(Inches(1.05), (BOTTOM - y) / min(len(items), 4))
+            for i, (lab, val, desc) in enumerate(items[:4]):
+                ry = y + i * row_h
+                self._rect(s, M, ry, CW, Emu(9525), fill=self.C["rule"])
+                self._txt(s, M, ry + Inches(0.18), CW * 0.22, row_h - Inches(0.2),
+                          [(lab, T_SMALL, True, self.C["key"])])
+                self._txt(s, M + CW * 0.24, ry + Inches(0.12), CW * 0.30, row_h - Inches(0.15),
+                          [(val, 30, True, self.C["deep"])], ls=1.0)
+                self._txt(s, M + CW * 0.57, ry + Inches(0.18), CW * 0.43, row_h - Inches(0.2),
+                          [(desc, T_SMALL, False, MUTE)])
+            return s
         n = max(1, min(len(items), 4))
         g = Inches(0.28); cw = (CW - g * (n - 1)) / n
         # 콘텐츠 실측 높이로 고정하고 남는 세로는 중앙 배치로 흡수한다.
@@ -311,7 +441,8 @@ class Deck:
             vsize -= 1
         for i, (lab, val, desc) in enumerate(items[:n]):
             x = M + (cw + g) * i
-            self._rect(s, x, y, cw, ch_, fill=self.C["tint"])
+            if self.concept != "poster":
+                self._rect(s, x, y, cw, ch_, fill=self.C["tint"])
             self._rect(s, x, y, cw, Inches(0.055), fill=self._accent(i, hot))
             self._txt(s, x + Inches(0.22), y + Inches(0.3), cw - Inches(0.44), Inches(0.34),
                       [(lab, T_META, True, self.C["key"])])

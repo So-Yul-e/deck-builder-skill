@@ -1,6 +1,6 @@
 ---
 name: deck
-description: Build or polish PowerPoint decks with a fixed presentation builder, OS preflight, and render verification. Use for PPT creation, deck polish, presentation cleanup, and slide-format decisions; route screen specs/storyboards to $screen-spec.
+description: Build or polish PowerPoint decks with selectable visual concepts, a presentation builder, OS preflight, and render verification. Use for PPT creation, deck polish, presentation cleanup, and slide-format decisions; route screen specs/storyboards to $screen-spec.
 ---
 
 # deck
@@ -8,6 +8,16 @@ description: Build or polish PowerPoint decks with a fixed presentation builder,
 Use this skill when the user asks to make a deck, polish a PPT, clean up slides, build presentation material, or choose the right slide forms for a planning/reporting deck.
 
 Route screen-design documents, storyboards, and formal screen-spec deliverables to `$screen-spec`. This skill handles presentation decks, not product screen documentation.
+
+## 0. Use-Time Update Check
+
+Before each skill invocation, run `python3 <skill_dir>/scripts/update_skill.py --auto`
+(or available Python 3 / Windows `py -3`). Read [references/updates.md](references/updates.md)
+when enabling, disabling, migrating an install or resolving an update warning.
+This is off until one-time installer opt-in. If files changed, reread SKILL.md and
+relevant references once, then proceed with preflight. Do not update repeatedly.
+A skipped or failed refresh does not block deck creation. Never fetch automatically
+on behalf of installations without consent or modify global session settings.
 
 ## 1. Preflight First
 
@@ -51,6 +61,32 @@ Existing deck polish command:
 
 Polish removes noisy borders from filled shapes, adds text-frame padding, and raises only title-level hierarchy. It does not move boxes or resize body text because that can create overflow.
 
+## 2a. Establish Art Direction
+
+For impact, bespoke design, or "less AI-looking" requests, read
+[references/art-direction.md](references/art-direction.md) first. Extract a brief
+from the real subject. For image-led requests also read [references/imagery.md](references/imagery.md),
+select or generate subject-matched assets and include actual images in previews.
+Compose distinct cover/body/data directions and critique
+rendered images. Use `compose()` where fixed builders flatten the content. Do not
+treat changing a preset palette as fulfillment of a bespoke request. Existing
+approved content and fixed templates remain inherited.
+
+For bespoke requests, the direction preview is the only selection step. Do not
+also run preset selection. For ordinary presets follow the workflow below.
+
+## 2b. Select A Visual Concept
+
+For new decks, read [references/concepts.md](references/concepts.md) before choosing
+appearance. Offer rendered cover/body/data previews of up to three concepts using
+the same content, then wait for the user's choice. Explicit concept requests or
+explicit automatic-selection requests skip this interaction. Existing decks and
+fixed templates keep their approved design unless redesign is requested.
+
+Supported IDs: `report` (existing default), `poster`, `editorial`, `showcase`.
+Use `Deck(concept="poster")`; explicit `palette=` overrides colors while preserving
+the concept layout. Do not equate purpose (e.g. investment pitch) with appearance.
+
 ## 3. Pick Form Before Text
 
 Summarize each slide in one sentence, then select one primary builder. `bullets()` is the fallback, not the default.
@@ -77,7 +113,7 @@ Summarize each slide in one sentence, then select one primary builder. `bullets(
 
 Hard limits:
 
-- One primary builder per slide.
+- One primary relationship per slide. Bespoke `compose()` may combine text, native shapes and a real image to express that relationship.
 - `flow()` card titles: Korean 8 chars or English 12 chars; `per_row <= 4`.
 - `cards()` max 4 items.
 - `deflist()` and `tree()` target 6 rows or fewer.
@@ -117,7 +153,7 @@ d.gate("Release Gate", [("Spec aligned", "pass", "No drift")])
 d.save("out.pptx")
 ```
 
-Use `indigo`, `navy`, or `mono` unless the project has design tokens. If tokens exist, inspect them first and pass a palette dict instead of inventing colors.
+For a regular report use `indigo`, `navy`, or `mono`; for bespoke design derive named palette tokens from the subject brief. If tokens exist, inspect them first and pass a palette dict instead of inventing colors.
 
 ## 5. Render Verification
 
