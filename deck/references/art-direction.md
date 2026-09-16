@@ -14,6 +14,10 @@ subject. A travel service would need its own routes, places and photography.
 If source is absent and its choice matters, request it. For a skill-development
 demonstration, use the repository itself and say so; do not invent customer KPIs.
 
+When the user wants topic-matched images, read [imagery.md](imagery.md). Include
+real selected or generated images in direction previews. A type-only specimen is
+not a substitute for an image-led request.
+
 ## Offer directions, not palette swaps
 
 Make up to three distinct visual hypotheses. Each names its subject connection,

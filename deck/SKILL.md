@@ -55,7 +55,9 @@ Polish removes noisy borders from filled shapes, adds text-frame padding, and ra
 
 For impact, bespoke design, or "less AI-looking" requests, read
 [references/art-direction.md](references/art-direction.md) first. Extract a brief
-from the real subject, compose distinct cover/body/data directions and critique
+from the real subject. For image-led requests also read [references/imagery.md](references/imagery.md),
+select or generate subject-matched assets and include actual images in previews.
+Compose distinct cover/body/data directions and critique
 rendered images. Use `compose()` where fixed builders flatten the content. Do not
 treat changing a preset palette as fulfillment of a bespoke request. Existing
 approved content and fixed templates remain inherited.
