@@ -1,6 +1,6 @@
 ---
 name: deck
-description: Build or polish PowerPoint decks with a fixed presentation builder, OS preflight, and render verification. Use for PPT creation, deck polish, presentation cleanup, and slide-format decisions; route screen specs/storyboards to $screen-spec.
+description: Build or polish PowerPoint decks with selectable visual concepts, a presentation builder, OS preflight, and render verification. Use for PPT creation, deck polish, presentation cleanup, and slide-format decisions; route screen specs/storyboards to $screen-spec.
 ---
 
 # deck
@@ -50,6 +50,18 @@ Existing deck polish command:
 ```
 
 Polish removes noisy borders from filled shapes, adds text-frame padding, and raises only title-level hierarchy. It does not move boxes or resize body text because that can create overflow.
+
+## 2a. Select A Visual Concept
+
+For new decks, read [references/concepts.md](references/concepts.md) before choosing
+appearance. Offer rendered cover/body/data previews of up to three concepts using
+the same content, then wait for the user's choice. Explicit concept requests or
+explicit automatic-selection requests skip this interaction. Existing decks and
+fixed templates keep their approved design unless redesign is requested.
+
+Supported IDs: `report` (existing default), `poster`, `editorial`, `showcase`.
+Use `Deck(concept="poster")`; explicit `palette=` overrides colors while preserving
+the concept layout. Do not equate purpose (e.g. investment pitch) with appearance.
 
 ## 3. Pick Form Before Text
 

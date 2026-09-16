@@ -10,3 +10,6 @@ examples/output/*
 !examples/output/deck-builder-catalog.pdf
 !examples/output/deck-builder-catalog-contact-sheet.png
 deck/assets/fonts/*.tmp
+
+# Local task notes
+work_log/
