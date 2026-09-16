@@ -127,6 +127,11 @@ $deck으로 이 PPTX의 내용과 박스 위치는 바꾸지 말고 시각적으
 
 ## 이미지 방향 선택과 업데이트
 
+**이미지 생성은 선택 사항입니다.** 사용자가 가진 사진·제품 이미지·스크린샷과
+사용 조건을 확인한 기존 이미지를 먼저 활용합니다. 사용자가 생성을 원하거나,
+적절한 자료가 없어 생성 방식을 선택한 경우에만 새 이미지를 만듭니다.
+이미지가 도움이 되지 않는 주제는 텍스트·도표·다이어그램으로 구성합니다.
+
 주제에 맞는 실제 화면·사진 또는 생성 이미지를 포함한 시안을 2~3개 비교하고,
 고른 방향으로 전체 덱을 만들 수 있습니다. 색만 바꾸는 대신 이미지 소재와
 배치를 함께 달리하고, 같은 문구와 데이터를 유지합니다. 이미지 생성·검색은
@@ -215,7 +220,7 @@ d.save("review.pptx")
 
 | 검사 | 결과 | 증거 |
 |---|---|---|
-| 자동 계약 테스트 | 8개 PASS | [`tests/`](tests)의 패키지·라이선스·PDF 검사를 [GitHub Actions](https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml)에서 실행 |
+| 자동 계약 테스트 | macOS 로컬 29개 PASS | [`tests/`](tests)의 패키지·라이선스·PDF·구성·업데이트 검사. 기존 CI 결과는 [GitHub Actions](https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml) 참조 |
 | Builder 범위 | 고유 카탈로그 20페이지 | [`examples/build_catalog.py`](examples/build_catalog.py)가 정확한 페이지 수를 assertion으로 고정 |
 | PDF 규격 | 20페이지, 16:9 | [커밋된 PDF](examples/output/deck-builder-catalog.pdf)는 `959.981 × 540 pt` |
 | PDF 타이포그래피 | Pretendard Regular/Bold 임베딩, Arial Narrow·STHeiti 거부 | [`verify_pdf_fonts.py`](deck/scripts/verify_pdf_fonts.py)와 [폰트 회귀 테스트](tests/test_pdf_verifier.py) |

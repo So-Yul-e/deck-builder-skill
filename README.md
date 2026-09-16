@@ -129,6 +129,11 @@ Use $deck to polish this PPTX without changing its content or moving its layout 
 
 ## Image Directions and Updates
 
+**Image generation is optional.** Prefer the user's photographs, product assets,
+screenshots, and existing images with verified reuse terms. Generate only when the
+user requests it or chooses generation because suitable assets are unavailable.
+Use editable text, diagrams, or truthful charts when imagery does not help.
+
 Create 2–3 previews using subject-specific photographs, screenshots, or generated illustrations, with different compositions and the same underlying claims. See [imagery guidance](deck/references/imagery.md) and [the comparison example](examples/build_image_direction_previews.py). Image generation depends on the host's available tools.
 
 For an official clone-and-link installation, enable updates once:
@@ -202,7 +207,7 @@ intentionally excluded.
 
 | Check | Result | Evidence |
 |---|---|---|
-| Automated contract suite | 8 tests PASS | Package, licensing, and PDF checks in [`tests/`](tests) run in [GitHub Actions](https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml) |
+| Automated contract suite | 29 tests PASS locally on macOS | Package, licensing, PDF, composition, and updater checks in [`tests/`](tests). Previous CI results: [GitHub Actions](https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml) |
 | Builder coverage | 20 unique catalog pages | [`examples/build_catalog.py`](examples/build_catalog.py) asserts the exact page count |
 | PDF geometry | 20 pages, 16:9 | [Committed PDF](examples/output/deck-builder-catalog.pdf) is `959.981 × 540 pt` |
 | PDF typography | Pretendard Regular/Bold embedded; Arial Narrow and STHeiti rejected | [`verify_pdf_fonts.py`](deck/scripts/verify_pdf_fonts.py) and [font regression tests](tests/test_pdf_verifier.py) |

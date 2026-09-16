@@ -13,11 +13,17 @@ candidate previews, not promised later or replaced by generic native rectangles.
    with available image search/browser tools. Inspect the source page, suitability
    and reuse terms; a search thumbnail is not sufficient provenance. Use permitted
    source assets or links. Do not download media to bypass a display restriction.
-3. For illustrative scenes, atmospheric photography, custom cutouts or concept
-   illustrations, use an available image generation tool/skill. State that it is
-   generated illustration, not a photograph proving real work or product results.
-   If the generator is unavailable, report the missing capability and ask only for
-   material needed; never substitute an empty image area as finished design.
+3. Image generation is optional, never a default requirement or upsell. Use it
+   when the user requests it, or when no suitable existing asset is available and
+   the user chooses generation. For illustrative scenes, atmospheric photography,
+   custom cutouts or concept illustrations, use an available generation tool/skill.
+   State that it is generated illustration, not a photograph proving real work or product results.
+   If generation is unavailable, use suitable existing assets or an approved
+   diagram/text composition; never present an empty image area as finished design.
+
+Images are not mandatory for every deck. If imagery does not help the subject,
+compose with editable text, diagrams and truthful charts. For image-bearing briefs,
+prefer existing material and select alternatives without requiring new generation.
 
 ## Image plan
 
