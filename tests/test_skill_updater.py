@@ -38,6 +38,8 @@ class SkillUpdaterTests(unittest.TestCase):
         git(self.seed, "remote", "add", "origin", str(self.origin))
         git(self.seed, "push", "-u", "origin", "main")
         git(self.root, "clone", "--branch", "main", str(self.origin), str(self.clone))
+        git(self.clone, "config", "user.email", "test@example.com")
+        git(self.clone, "config", "user.name", "Test")
         self.skill = self.clone / "deck"
         self.trust = mock.patch.object(update_skill, "is_trusted_origin", return_value=True)
         self.trust.start()
@@ -72,6 +74,21 @@ class SkillUpdaterTests(unittest.TestCase):
         (self.clone / "local-note.txt").write_text("dirty", encoding="utf-8")
         self.assertIn("작업 트리", update_skill.auto_update(self.skill, now=lambda: 10_000))
 
+    def test_auto_skips_recently_checked_without_network(self) -> None:
+        self._enable()
+        config = update_skill.load_config(self.skill)
+        config["last_checked"] = 9_999
+        update_skill.save_config(self.skill, config)
+        original_git = update_skill._git
+
+        def no_fetch(repo: Path, *args: str, **kwargs: object) -> str:
+            if args[:2] == ("fetch", "origin"):
+                raise AssertionError("fetch 금지")
+            return original_git(repo, *args, **kwargs)
+
+        with mock.patch.object(update_skill, "_git", side_effect=no_fetch):
+            self.assertIn("최근 1시간", update_skill.auto_update(self.skill, now=lambda: 10_000))
+
     def test_auto_skips_diverged_checkout(self) -> None:
         self._enable()
         (self.seed / "remote.txt").write_text("remote", encoding="utf-8")
@@ -82,6 +99,39 @@ class SkillUpdaterTests(unittest.TestCase):
         git(self.clone, "add", ".")
         git(self.clone, "commit", "-m", "local")
         self.assertIn("갈라", update_skill.auto_update(self.skill, now=lambda: 10_000))
+
+    def test_auto_skips_changed_origin_and_copy_installation(self) -> None:
+        self._enable()
+        git(self.clone, "remote", "set-url", "origin", "https://example.invalid/changed.git")
+        self.assertIn("설정의 origin", update_skill.auto_update(self.skill, now=lambda: 10_000))
+        copied = self.clone / "copied-deck"
+        copied.mkdir()
+        with self.assertRaisesRegex(update_skill.UpdateError, "복사된"):
+            update_skill.locate_checkout(copied)
+
+    def test_auto_skips_existing_lock(self) -> None:
+        self._enable()
+        lock = self.clone / ".git" / update_skill.LOCK_NAME
+        lock.write_text("other process", encoding="utf-8")
+        self.assertIn("진행 중", update_skill.auto_update(self.skill, now=lambda: 10_000))
+
+    def test_auto_offline_returns_warning_and_keeps_exit_success(self) -> None:
+        self._enable()
+        original_git = update_skill._git
+
+        def unavailable(repo: Path, *args: str, **kwargs: object) -> str:
+            if args[:2] == ("fetch", "origin"):
+                raise update_skill.UpdateError("offline")
+            return original_git(repo, *args, **kwargs)
+
+        with mock.patch.object(update_skill, "_git", side_effect=unavailable):
+            message = update_skill.auto_update(self.skill, now=lambda: 10_000)
+        self.assertIn("WARNING", message)
+
+    def test_main_accepts_explicit_check(self) -> None:
+        with mock.patch.object(update_skill, "check", return_value="STATUS disabled") as check:
+            self.assertEqual(0, update_skill.main(["--check"]))
+        check.assert_called_once_with()
 
     def test_check_is_read_only_and_reports_origin_state(self) -> None:
         self.assertIn("STATUS disabled", update_skill.check(self.skill))

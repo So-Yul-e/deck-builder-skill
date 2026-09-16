@@ -80,7 +80,7 @@ def locate_checkout(skill_dir: Path | None = None) -> Checkout:
 
     # A real linked install lives at <checkout>/deck.  A copied deck directory
     # can have a Git parent elsewhere, but it must never update itself.
-    if resolved_skill.parent != repo_root:
+    if resolved_skill != repo_root / "deck":
         raise UpdateError("복사된 설치본입니다. 원본 checkout에 연결된 deck 스킬에서만 업데이트할 수 있습니다.")
     return Checkout(resolved_skill, repo_root, git_dir, origin_url, branch)
 
@@ -149,7 +149,7 @@ def check(skill_dir: Path | None = None) -> str:
         checkout = locate_checkout(directory)
     except UpdateError as error:
         return f"SKIPPED {error}"
-    enabled = bool(config.get("enabled", False))
+    enabled = config.get("enabled") is True
     state = "enabled" if enabled else "disabled"
     origin = "trusted" if is_trusted_origin(checkout.origin_url) else "untrusted"
     return (
@@ -187,7 +187,7 @@ def auto_update(
     """Fetch and fast-forward an opted-in, clean official main checkout only."""
     directory = (skill_dir or _default_skill_dir()).resolve()
     config = load_config(directory)
-    if not bool(config.get("enabled", False)):
+    if config.get("enabled") is not True:
         return "SKIPPED 자동 업데이트가 꺼져 있습니다."
     try:
         checkout = locate_checkout(directory)
@@ -209,9 +209,14 @@ def auto_update(
     try:
         before = _git(checkout.repo_root, "rev-parse", "HEAD")
         try:
-            _git(checkout.repo_root, "fetch", "origin", BRANCH, timeout=20)
+            _git(checkout.repo_root, "fetch", "origin", f"{BRANCH}:refs/remotes/origin/{BRANCH}", timeout=20)
         except (UpdateError, subprocess.TimeoutExpired) as error:
             return f"WARNING 네트워크 확인 실패: {error}"
+        # A user may have edited the checkout while fetch was in progress.
+        # Re-check immediately before any write or merge.
+        reason = _eligible(checkout, config)
+        if reason:
+            return f"SKIPPED 업데이트하지 않았습니다: {reason}"
         config["last_checked"] = current_time
         save_config(checkout.skill_dir, config)
 
@@ -231,7 +236,7 @@ def auto_update(
             return f"WARNING fast-forward 업데이트 실패: {error}"
         after = _git(checkout.repo_root, "rev-parse", "HEAD")
         if before != after:
-            return "UPDATED 새 deck SKILL을 반영했습니다. 다음 요청부터 새 규칙을 읽습니다."
+            return "UPDATED 새 deck SKILL을 반영했습니다. 이 요청에서 SKILL.md를 다시 읽어 적용하세요."
         return "OK 이미 최신 버전입니다."
     finally:
         os.close(lock_fd)
@@ -244,6 +249,7 @@ def auto_update(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="연결된 deck 스킬 checkout의 안전한 업데이트")
     group = parser.add_mutually_exclusive_group()
+    group.add_argument("--check", action="store_true", help="로컬 설치 상태만 읽어 확인합니다")
     group.add_argument("--enable", action="store_true", help="공식 main checkout의 자동 업데이트를 켭니다")
     group.add_argument("--disable", action="store_true", help="자동 업데이트를 끕니다")
     group.add_argument("--auto", action="store_true", help="opt-in된 경우에만 안전하게 업데이트합니다")
@@ -257,7 +263,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             message = auto_update()
         else:
             message = check()
-    except UpdateError as error:
+    except (UpdateError, OSError, subprocess.TimeoutExpired) as error:
+        if args.auto:
+            print(f"WARNING 업데이트하지 않았습니다: {error}")
+            return 0
         print(f"ERROR {error}")
         return 2
     print(message)
