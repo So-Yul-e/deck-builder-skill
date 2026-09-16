@@ -36,6 +36,19 @@ interfaces or a synthetic look that conflicts with the brief. Natural material
 texture, photographic framing and restrained light can support an editorial brief;
 they are not a universal recipe for every subject.
 
+## Diverse image-bearing candidates
+
+For a request to explore alternatives, produce 2-3 genuinely different image plans
+using the same approved claims/data: e.g. photographic material, handmade collage,
+and printed illustration when those suit the subject. These are examples, not a
+universal menu. Each candidate needs actual matching imagery and a different
+composition, not one photo recolored three times. Keep each candidate internally
+coherent. Show image-bearing cover/body plus identical-data evidence, then select.
+For a selected direction, use multiple topic-specific assets when needed; do not
+reuse one hero on every slide. Some chart/diagram/text moments intentionally omit
+photographs. Image generation adds time: use a small preview asset set before
+building the whole selected deck.
+
 ## Placement and rhythm
 
 Use a large image, full-slide image with text-safe space, asymmetric image/text
@@ -72,3 +85,10 @@ This helper only applies the known six-slide demonstration delta; it is not a
 general deck redesign engine. It preserves baseline text/shapes, places the scene
 as a text-safe cover and a body detail, and records generated-image context in
 notes. New subjects require their own image plan and matching assets.
+
+`examples/build_image_direction_previews.py` inherits the same six-slide repository
+story into photo/collage/screenprint candidates. Pass the approved `--baseline`,
+three actual `--photo`, `--collage`, `--screenprint` assets and `--output-dir`.
+Images are generated illustration; full prompts and source types accompany the
+local demonstration assets. These three styles are a topic study, not mandatory
+choices for every installed user's deck.
