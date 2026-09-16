@@ -1,5 +1,9 @@
 # Selectable visual concepts
 
+For bespoke or less AI-looking requests, use [art-direction.md](art-direction.md)
+before this preset catalog. This file describes explicit preset selection, not
+subject-specific design discovery.
+
 ## Selection contract
 
 Purpose (report, pitch, product introduction) and visual concept are independent.

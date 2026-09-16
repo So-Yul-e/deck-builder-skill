@@ -253,6 +253,80 @@ class Deck:
         return self.C["key"] if i == hot else self.C["sub"]
 
     # ── 텍스트 슬라이드 ────────────────────────────────────────────
+    def compose(self, elements, background="white"):
+        """Editable content-led layout. Inches, named colors, no automatic copy edits."""
+        import math
+        colors = dict(self.C, ink=INK, mute=MUTE, white=WHITE)
+        if background not in colors:
+            raise ValueError(f"Unknown background token: {background}")
+        prepared = []
+        for element in elements:
+            e = dict(element)
+            kind = e.get("kind")
+            if kind not in ("text", "rect", "image"):
+                raise ValueError(f"Unknown element kind: {kind}")
+            values = [float(e[name]) for name in ("x", "y", "w", "h")]
+            x, y, w, h = values
+            if not all(math.isfinite(v) for v in values) or min(x, y) < 0 or min(w, h) <= 0:
+                raise ValueError("Element needs finite positive dimensions and nonnegative positions")
+            if x + w > SW / 914400 + 1e-6 or y + h > SH / 914400 + 1e-6:
+                raise ValueError("Element exceeds slide bounds")
+            e.update(zip(("x", "y", "w", "h"), values))
+            if kind != "image":
+                color = e.get("color", "ink")
+                if color not in colors:
+                    raise ValueError(f"Unknown color token: {color}")
+                e["rgb"] = colors[color]
+            if kind == "text":
+                size = float(e.get("size", 19))
+                if not math.isfinite(size) or size <= 0:
+                    raise ValueError("Font size must be positive")
+                lines = []
+                for paragraph in str(e["text"]).split("\n"):
+                    line = ""
+                    for character in paragraph:
+                        if measure_pt(character, size, e.get("bold", False)) > w * 72 / 1.12:
+                            raise ValueError("A glyph is wider than its text box")
+                        if line and measure_pt(line + character, size, e.get("bold", False)) > w * 72 / 1.12:
+                            lines.append(line)
+                            line = ""
+                        line += character
+                    lines.append(line)
+                if len(lines) * size * 1.25 / 72 > h:
+                    raise ValueError(f"Text does not fit: {e['text']!r}; enlarge box or split slide")
+                e["wrapped"] = "\n".join(lines)
+                e["size"] = size
+            elif kind == "image":
+                from PIL import Image
+                with Image.open(e["path"]) as img:
+                    iw, ih = img.size
+                scale = min(w / iw, h / ih)
+                e["image_w"], e["image_h"] = iw * scale, ih * scale
+            prepared.append(e)
+        # Validate all elements before adding a slide, so failures leave no partial slide.
+        s = self._blank()
+        s.background.fill.solid()
+        s.background.fill.fore_color.rgb = colors[background]
+        for e in prepared:
+            x, y, w, h = [Inches(e[name]) for name in ("x", "y", "w", "h")]
+            if e["kind"] == "text":
+                self._txt(s, x, y, w, h, [(e["wrapped"], e["size"], e.get("bold", False), e["rgb"])], ls=1.15)
+            elif e["kind"] == "rect":
+                shape = self._rect(s, x, y, w, h, fill=e["rgb"])
+                # Empty direct effects override Office theme shadows on native shapes.
+                from pptx.oxml.xmlchemy import OxmlElement
+                properties = shape._element.spPr
+                for effects in list(properties):
+                    if effects.tag.rsplit("}", 1)[-1] in ("effectLst", "effectDag"):
+                        properties.remove(effects)
+                properties.append(OxmlElement("a:effectLst"))
+                for reference in shape._element.xpath(".//a:effectRef"):
+                    reference.set("idx", "0")
+            else:
+                iw, ih = Inches(e["image_w"]), Inches(e["image_h"])
+                s.shapes.add_picture(str(e["path"]), int(x + (w - iw) / 2), int(y + (h - ih) / 2), width=iw, height=ih)
+        return s
+
     def cover(self, title, subtitle="", meta="", image=None):
         editorial = self.concept == "editorial"
         s = self._blank(dark=not editorial)

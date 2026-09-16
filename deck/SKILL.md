@@ -51,7 +51,19 @@ Existing deck polish command:
 
 Polish removes noisy borders from filled shapes, adds text-frame padding, and raises only title-level hierarchy. It does not move boxes or resize body text because that can create overflow.
 
-## 2a. Select A Visual Concept
+## 2a. Establish Art Direction
+
+For impact, bespoke design, or "less AI-looking" requests, read
+[references/art-direction.md](references/art-direction.md) first. Extract a brief
+from the real subject, compose distinct cover/body/data directions and critique
+rendered images. Use `compose()` where fixed builders flatten the content. Do not
+treat changing a preset palette as fulfillment of a bespoke request. Existing
+approved content and fixed templates remain inherited.
+
+For bespoke requests, the direction preview is the only selection step. Do not
+also run preset selection. For ordinary presets follow the workflow below.
+
+## 2b. Select A Visual Concept
 
 For new decks, read [references/concepts.md](references/concepts.md) before choosing
 appearance. Offer rendered cover/body/data previews of up to three concepts using
@@ -89,7 +101,7 @@ Summarize each slide in one sentence, then select one primary builder. `bullets(
 
 Hard limits:
 
-- One primary builder per slide.
+- One primary relationship per slide. Bespoke `compose()` may combine text, native shapes and a real image to express that relationship.
 - `flow()` card titles: Korean 8 chars or English 12 chars; `per_row <= 4`.
 - `cards()` max 4 items.
 - `deflist()` and `tree()` target 6 rows or fewer.
@@ -129,7 +141,7 @@ d.gate("Release Gate", [("Spec aligned", "pass", "No drift")])
 d.save("out.pptx")
 ```
 
-Use `indigo`, `navy`, or `mono` unless the project has design tokens. If tokens exist, inspect them first and pass a palette dict instead of inventing colors.
+For a regular report use `indigo`, `navy`, or `mono`; for bespoke design derive named palette tokens from the subject brief. If tokens exist, inspect them first and pass a palette dict instead of inventing colors.
 
 ## 5. Render Verification
 
