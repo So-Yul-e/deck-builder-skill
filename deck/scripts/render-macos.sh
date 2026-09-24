@@ -61,7 +61,8 @@ render_with_powerpoint() {
   cleanup
   JOB_DIR="$(mktemp -d "$TMP_BASE/deck-render.XXXXXX")"
   PPT_PDF="$JOB_DIR/out.pdf"
-  for _ in 1 2 3; do
+  # One attempt only. Retrying reopened PowerPoint windows and recovery prompts.
+  for _ in 1; do
     rm -f "$PPT_PDF"
     osascript - "$SRC_ABS" "$PPT_PDF" >/dev/null 2>&1 <<'APPLESCRIPT' || true
 on run argv
@@ -93,6 +94,14 @@ APPLESCRIPT
 
 if command -v soffice >/dev/null 2>&1 && render_with_libreoffice; then
   exit 0
+fi
+
+# PowerPoint can open windows, macOS automation consent prompts and recovery dialogs,
+# so it is never an automatic fallback. Use it only when the user asked for it.
+if [ "${DECK_ALLOW_POWERPOINT:-0}" != "1" ]; then
+  echo "Render failed: LibreOffice could not export the deck. PowerPoint fallback is disabled." >&2
+  echo "Only if the user explicitly approves: DECK_ALLOW_POWERPOINT=1 bash $0 $SRC" >&2
+  exit 1
 fi
 
 if command -v osascript >/dev/null 2>&1 && render_with_powerpoint; then

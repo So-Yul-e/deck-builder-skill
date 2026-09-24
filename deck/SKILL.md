@@ -187,6 +187,14 @@ powershell -ExecutionPolicy Bypass -File <skill_dir>\scripts\render-windows.ps1 
 
 Then inspect the PDF or rendered pages. Confirm that text is not clipped, charts have readable labels, screenshots appear, and fonts did not fall back. On macOS, LibreOffice is the repeatable render path; PowerPoint final-open checks are useful when the user will present in PowerPoint.
 
+Render budget (macOS):
+
+- While generating and revising, run only the layout regression and structural checks. Render with LibreOffice only once content and layout are stable.
+- Launch LibreOffice at most twice per task. A render that retried after a transient error counts as both runs.
+- If the first render shows visual defects, fix them all at once, then render one final time only if budget remains.
+- On a process crash, a macOS reopen or recovery prompt, or a font verification failure, stop. Do not relaunch LibreOffice or PowerPoint automatically in the same task; report the static check results and the reason to the user.
+- `render-macos.sh` never falls back to PowerPoint on its own, because PowerPoint can open windows, automation consent prompts and recovery dialogs. Only when the user explicitly asks, run it once with `DECK_ALLOW_POWERPOINT=1 bash <skill_dir>/scripts/render-macos.sh out.pptx`.
+
 ## 6. Codex Compatibility
 
 - Codex file inspection replaces Claude `Read`, `Glob`, and `Bash` tool references.
