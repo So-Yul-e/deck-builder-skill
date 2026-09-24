@@ -201,3 +201,4 @@ Render budget (macOS):
 - For standalone `.pptx` creation and editing, this skill owns the workflow and `deck/scripts/` runtime.
 - For broad artifact work outside this skill, use the separate `presentations` skill/tool for PowerPoint/Google Slides and `spreadsheets` for workbook/table artifacts.
 - Keep the `$deck` trigger explicit in agent prompts so Codex can route deck work to this skill.
+- On macOS, LibreOffice does not run inside the Codex sandbox. Run `bash <skill_dir>/scripts/render-safe-macos.sh out.pptx` outside the sandbox instead of `render-macos.sh`: it accepts only a `.pptx` input and a `.pdf` output inside one Git project or `~/workspace/<project>/`, rejects symbolic links, retries only a transient LibreOffice error once, and never launches PowerPoint. Approving this command keeps the out-of-sandbox run that narrow.
