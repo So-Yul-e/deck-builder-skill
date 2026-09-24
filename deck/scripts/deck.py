@@ -14,8 +14,10 @@ deck 스킬 — 선택형 컨셉 빌더.
     d.flow("유저 플로우", [("발견","웹→설치"), ("온보딩","60초"), ("추천","10초")])
     d.save("out.pptx")
 """
+import math
 import os
 from pathlib import Path
+import tempfile
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
@@ -117,6 +119,47 @@ def measure_emu(text, size_pt, bold=False):
     return Emu(int(measure_pt(text, size_pt, bold) * 12700))
 
 
+def wrap_text(text, size_pt, width_pt, bold=False, safety=1.12, max_lines=3):
+    """실측 폭으로 텍스트를 줄 목록으로 나눈다.
+
+    PowerPoint와 LibreOffice는 한글·구분점·세로선이 섞인 긴 문장을 서로 다르게
+    자동 줄바꿈한다. 박스에 맡기지 않고 공백 경계에서 먼저 나누며, 공백 없는 긴
+    토큰은 글자 경계에서 나눈다. max_lines를 넘기면 생성 단계에서 멈춘다.
+    """
+    limit = width_pt / safety
+    lines = []
+    for explicit in str(text).split("\n"):
+        words = explicit.split()
+        current = ""
+        for word in words:
+            candidate = word if not current else f"{current} {word}"
+            if measure_pt(candidate, size_pt, bold) <= limit:
+                current = candidate
+                continue
+            if current:
+                lines.append(current)
+                current = ""
+            if measure_pt(word, size_pt, bold) <= limit:
+                current = word
+                continue
+            chunk = ""
+            for char in word:
+                candidate = chunk + char
+                if chunk and measure_pt(candidate, size_pt, bold) > limit:
+                    lines.append(chunk)
+                    chunk = char
+                else:
+                    chunk = candidate
+            current = chunk
+        if current or not words:
+            lines.append(current)
+    if len(lines) > max_lines:
+        raise ValueError(
+            f"텍스트가 허용된 {max_lines}줄을 넘습니다. 문장을 줄이거나 슬라이드를 나누세요: {text}"
+        )
+    return lines
+
+
 # ── 폰트 안전 문자 ───────────────────────────────────────────────────
 # 폰트나 렌더러가 지원하지 않는 글리프는 대체 폰트로 바뀌어 자간·굵기·높이가
 # 어긋난다. 특히 짝을 이루는 기호(▓/░ 진행률)에서 한쪽만 폴백되면 눈에 띈다.
@@ -137,7 +180,8 @@ T_COVER, T_SECNUM = 50, 68
 T_TITLE = T_SEC = 30          # 동시 등장 없음 — 상수를 둘로 둘 이유가 없다
 T_LEAD = T_BODY = 19          # 리드/본문은 크기가 아니라 색(MUTE/INK)으로 가른다
 T_SMALL, T_META = 14, 11      # 19/14 = 1.36 · 14/11 = 1.27(둘 다 캡션 급)
-T_VALUE = 38                  # cards 값 전용 — 종전 30 하드코딩은 T_TITLE과 동급이었다
+T_VALUE = 32                  # cards 숫자·지표 값 상한
+T_VALUE_TEXT = 27             # cards 개념어 값 상한 — 제목과 경쟁하지 않게 둔다
 
 SW, SH = Inches(13.333), Inches(7.5)
 M = Inches(0.85)
@@ -160,6 +204,7 @@ class Deck:
         self.prs.slide_width, self.prs.slide_height = SW, SH
         self.footer = footer
         self._n = 0
+        self._temp_files = []
 
     # ── 내부 ──────────────────────────────────────────────────────
     def _rect(self, s, x, y, w, h, fill=None, line=None, radius=False):
@@ -202,7 +247,9 @@ class Deck:
             # 노드에서 44~78pt 왼쪽으로 밀려 계단처럼 보이던 원인이 이것이다.
             for line in str(t).split("\n"):
                 p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-                p.alignment = align; p.line_spacing = ls
+                p.alignment = align
+                if ls is not None:
+                    p.line_spacing = ls
                 r = p.add_run(); r.text = line
                 r.font.name = FONT; r.font.size = Pt(sz); r.font.bold = b
                 r.font.color.rgb = c
@@ -224,16 +271,52 @@ class Deck:
         self._n += 1
         if eyebrow:
             self._rect(s, M, Inches(0.72), Inches(0.055), Inches(0.42), fill=self.C["key"])
-            self._txt(s, M + Inches(0.22), Inches(0.72), Inches(7), Inches(0.42),
+            # 7in 고정 폭은 긴 프로젝트명에서 LibreOffice가 글자를 박스 왼쪽으로
+            # 역류시키는 원인이 됐다. 본문 가로폭 전체를 쓰되 세로 막대만 비운다.
+            # 한 줄 텍스트에 기본 행간(1.35)을 주면 늘어난 leading이 글자 위에
+            # 붙어, MIDDLE 앵커가 줄 상자를 가운데 둬도 글자는 아래로 쏠린다.
+            # 실측 2026-08-17: 막대 중심 대비 글자 중심이 3.1pt 낮았다.
+            # deflist 라벨(§_deflist)이 같은 이유로 이미 ls=None을 쓴다.
+            self._txt(s, M + Inches(0.22), Inches(0.72), CW - Inches(0.22), Inches(0.42),
                       [(eyebrow.upper(), T_META, True, self.C["key"])],
-                      anchor=MSO_ANCHOR.MIDDLE)
-        self._txt(s, M, Inches(1.26), CW, Inches(0.8), [(title, T_TITLE if self.concept == "report" else self.style["title_size"], True, INK)])
+                      anchor=MSO_ANCHOR.MIDDLE, ls=None)
+        # 제목은 한 줄을 기본으로 하되 시안 크기의 26/30까지 줄여 먼저 한 줄을 지킨다.
+        # 그래도 넘는 제목만 두 줄로 만들고, 리드와 본문 시작점을 함께 내린다.
+        # 종전에는 제목 박스만 고정 0.8in이라 두 줄 제목이 리드 위로 흘렀다.
+        # 시작 크기만 시안을 따르고, 줄인 뒤의 칸·위치는 모든 시안에 같은 수치를 쓴다.
+        # 줄어든 크기는 가장 큰 poster(36pt)도 31pt라 1.14in 칸에 두 줄이 들어가고,
+        # 리드 위치(두 줄이면 2.47in)가 시안과 무관하게 고정이기 때문이다.
+        base_size = T_TITLE if self.concept == "report" else self.style["title_size"]
+        title_box_pt = CW / Emu(12700)
+        title_size = base_size
+        min_size = round(base_size * 26 / 30)
+        # PowerPoint/LibreOffice의 한글 bold 폭 차이를 위한 안전계수. 20%는 실제로
+        # 한 줄인 긴 제목까지 두 줄로 오판해 리드만 아래로 내려가므로 12%로 둔다.
+        while title_size > min_size and measure_pt(title, title_size, True) * 1.12 > title_box_pt:
+            title_size -= 1
+        title_lines = max(
+            1, math.ceil(measure_pt(title, title_size, True) * 1.12 / title_box_pt)
+        )
+        title_lines = min(title_lines, 2)
+        title_h = Inches(0.8 if title_lines == 1 else 1.14)
+        self._txt(s, M, Inches(1.26), CW, title_h, [(title, title_size, True, INK)],
+                  ls=1.08)
         if self.concept == "editorial":
             self._rect(s, M, Inches(1.12), CW, Emu(9525), fill=self.C["key"])
-        y = Inches(2.25)
+        y = Inches(2.25 if title_lines == 1 else 2.66)
         if lead:
-            self._txt(s, M, Inches(2.05), CW, Inches(0.5), [(lead, T_LEAD, False, MUTE)])
-            y = Inches(2.75)
+            lead_y = Inches(2.05 if title_lines == 1 else 2.47)
+            # 리드도 긴 문장에서는 두 줄이 된다. 종전의 고정 0.5in 박스는
+            # 둘째 줄을 잘라내고 본문/이미지가 그 위를 덮었다. 실제 폭으로
+            # 줄 수를 계산해 리드 박스와 콘텐츠 시작점을 함께 내린다.
+            # 렌더러 자동 줄바꿈에 맡기면 긴 한글·구분점·세로선 조합이 박스 좌우로
+            # 넘치기도 한다. 실측한 줄을 문단으로 명시해 두 렌더러의 결과를 맞춘다.
+            lead_parts = wrap_text(lead, T_LEAD, title_box_pt, max_lines=3)
+            lead_lines = len(lead_parts)
+            lead_h = Inches(0.48 + 0.34 * (lead_lines - 1))
+            self._txt(s, M, lead_y, CW, lead_h,
+                      [("\n".join(lead_parts), T_LEAD, False, MUTE)], ls=1.15)
+            y = lead_y + lead_h + Inches(0.12)
         self._rect(s, M, SH - Inches(0.92), CW, Emu(9525), fill=self.C["rule"])
         self._txt(s, M, SH - Inches(0.78), Inches(9), Inches(0.3),
                   [(self.footer, T_META, False, MUTE)])
@@ -352,10 +435,23 @@ class Deck:
                 s.shapes.add_picture(str(image), int(panel_x + (SW - panel_x - w) / 2),
                                      int((SH - h) / 2), width=w, height=h)
         y, height, size = self.style["cover"]
+        subtitle_y = self.style["subtitle_y"]
+        title_text, title_ls = title, 1.15
+        if self.concept == "report" and image is None:
+            # 긴 헤드카피는 자동 줄바꿈에 맡기면 둘째 줄이 1.4in 박스 아래에서
+            # 잘린다. 두 줄이면 크기·박스·후속 요소 위치를 함께 조정한다.
+            # (다른 시안은 처음부터 두 줄 높이의 박스를 쓴다.)
+            title_box_pt = width / Emu(12700)
+            parts = wrap_text(title, size, title_box_pt, bold=True, max_lines=2)
+            if len(parts) == 2:
+                size = 44
+                parts = wrap_text(title, size, title_box_pt, bold=True, max_lines=2)
+                height, subtitle_y = 1.55, 4.5
+            title_text, title_ls = "\n".join(parts), 1.1
         self._txt(s, M, Inches(y), width, Inches(height),
-                  [(title, size, True, text_color)], ls=1.15)
+                  [(title_text, size, True, text_color)], ls=title_ls)
         if subtitle:
-            self._txt(s, M, Inches(self.style["subtitle_y"]), width, Inches(1.0 if self.concept != "report" or image else 0.6),
+            self._txt(s, M, Inches(subtitle_y), width, Inches(1.0 if self.concept != "report" or image else 0.6),
                       [(subtitle, T_LEAD, False, secondary)])
         if meta:
             self._txt(s, M, SH - Inches(1.05), width, Inches(0.4),
@@ -372,7 +468,7 @@ class Deck:
                       [(lead, T_LEAD, False, self.C["pale"])])
         return s
 
-    def statement(self, text, sub=""):
+    def statement(self, text, sub="", link_text="", link_url=""):
         s = self._blank()
         self._head(s, "")
         # 가용 영역(헤더 아래 ~ 푸터 위) 세로 중앙. 위에 붙이면 아래가 통째로 빈다.
@@ -382,14 +478,41 @@ class Deck:
         # 실제 행 높이로 계산하고 선과 텍스트가 같은 박스를 공유하게 한다.
         line_h = Pt(T_SEC * 1.3)
         block_h = line_h * lines
-        block = block_h + (Inches(0.9) if sub else 0)
+        has_sub = bool(sub or link_text)
+        contact_h = Inches(1.12 if (sub and link_text) else 0.9) if has_sub else 0
+        block = block_h + contact_h
         top = Inches(1.05) + (BOTTOM - Inches(1.05) - block) / 2
-        self._rect(s, M, top, Inches(0.06), block_h, fill=self.C["key"])
+        # 텍스트박스에는 Pretendard의 ascent/leading 여백이 포함되므로 박스 전체와
+        # 선을 맞추면 선이 실제 글자 획보다 위로 튀어나온다. LibreOffice 180dpi
+        # 실측값으로 한·두 줄의 보이는 glyph 경계에 선을 맞춘다.
+        line_index = min(max(lines, 1), 2) - 1
+        bar_top_inset = Inches(0.18 - 0.06 * line_index)
+        bar_bottom_outset = Inches(0.03 + 0.05 * line_index)
+        self._rect(
+            s,
+            M,
+            top + bar_top_inset,
+            Inches(0.06),
+            block_h - bar_top_inset + bar_bottom_outset,
+            fill=self.C["key"],
+        )
         self._txt(s, M + Inches(0.45), top, CW - Inches(0.45), block_h,
                   [(text, T_SEC, True, INK)], ls=1.3, anchor=MSO_ANCHOR.MIDDLE)
-        if sub:
-            self._txt(s, M + Inches(0.45), top + block_h + Inches(0.24),
-                      Inches(10.2), Inches(0.8), [(sub, T_BODY, False, MUTE)])
+        if has_sub:
+            if link_text:
+                self._txt(
+                    s, M + Inches(0.45), top + block_h + Inches(0.24),
+                    Inches(10.2), Inches(0.42),
+                    [(link_text, T_BODY, True, self.C["key"], link_url)],
+                    anchor=MSO_ANCHOR.MIDDLE, ls=1.0,
+                )
+            if sub:
+                sub_y = top + block_h + Inches(0.68 if link_text else 0.24)
+                self._txt(
+                    s, M + Inches(0.45), sub_y, Inches(10.2), Inches(0.42),
+                    [(sub, T_BODY, False, MUTE)],
+                    anchor=MSO_ANCHOR.MIDDLE, ls=1.0,
+                )
         return s
 
     def bullets(self, title, items, eyebrow=None, lead=None, hot=None):
@@ -435,8 +558,15 @@ class Deck:
         # 글자당 0.62em으로 잡는다. 종전 1.75 계수는 경계에서 한 글자가 넘쳐
         # "500~1,000"이 두 줄로 깨졌다(실측).
         box_pt = (cw - Inches(0.44)) / Emu(12700)
-        vsize = T_VALUE
-        widest = max(items[:n], key=lambda t: measure_pt(t[1], T_VALUE, True))[1]
+        values = [str(item[1]) for item in items[:n]]
+        # 숫자 지표와 개념어를 같은 38pt로 그리면 카드 값이 슬라이드 제목과
+        # 경쟁한다. 한 장에 개념어가 하나라도 있으면 전 카드의 값 크기를 낮춰
+        # 동일한 기준선을 유지하고, 순수 숫자 지표도 32pt를 넘기지 않는다.
+        max_value_size = T_VALUE_TEXT if any(
+            any(ch.isalpha() for ch in value) for value in values
+        ) else T_VALUE
+        vsize = max_value_size
+        widest = max(values, key=lambda value: measure_pt(value, max_value_size, True))
         while vsize > 20 and measure_pt(widest, vsize, True) > box_pt:
             vsize -= 1
         for i, (lab, val, desc) in enumerate(items[:n]):
@@ -457,25 +587,52 @@ class Deck:
 
         python-pptx 기본값은 셀 텍스트가 **좌측 상단에 붙고 안쪽 여백이 0**이라
         그대로 두면 표가 싸구려로 보인다. 세로 중앙 정렬 + 여백을 명시하고,
-        행 높이를 가용 공간에 분배해 아래가 비지 않게 한다.
+        행 높이는 텍스트 줄 수로 정하고 표 전체만 가용 영역의 가운데에 둔다.
+        남는 높이를 행에 강제로 분배하면 5~6행 표가 큰 버튼처럼 부풀어 오르기
+        때문이다. 셀은 최대 두 줄까지만 허용하고 넘으면 표를 나눈다.
         """
         s = self._blank()
         y = self._head(s, title, eyebrow, lead)
         nr, nc = len(rows) + 1, len(headers)
+        if nc < 3:
+            raise ValueError("table()은 3열 이상 대조에만 사용하세요. 2열은 deflist()를 사용하세요.")
+        if any(len(row) != nc for row in rows):
+            raise ValueError("table()의 모든 행은 헤더와 같은 열 수여야 합니다.")
+        if col_ratio and len(col_ratio) != nc:
+            raise ValueError("table()의 col_ratio는 헤더 수와 같아야 합니다.")
         avail = BOTTOM - y
-        # 헤더는 조금 낮게, 본문 행은 남는 높이를 균등 분배(하한 0.5in)
-        hdr_h = Inches(0.52)
-        body_h = min(Inches(0.86), max(Inches(0.46), (avail - hdr_h) / max(1, len(rows))))
-        total = hdr_h + body_h * len(rows)
-        tbl = s.shapes.add_table(nr, nc, int(M), int(y), int(CW), int(total)).table
+        if col_ratio:
+            ratio_total = sum(col_ratio)
+            col_widths = [CW * ratio / ratio_total for ratio in col_ratio]
+        else:
+            col_widths = [CW / nc] * nc
+
+        def wrapped(text, size, col_width, bold=False):
+            width_pt = max(12, col_width / Emu(12700) - 18)
+            return wrap_text(str(text), size, width_pt, bold=bold, max_lines=2)
+
+        header_lines = [wrapped(value, T_META, col_widths[i], True)
+                        for i, value in enumerate(headers)]
+        body_lines = []
+        row_heights = []
+        for row in rows:
+            prepared = [wrapped(value, T_SMALL, col_widths[i])
+                        for i, value in enumerate(row)]
+            body_lines.append(prepared)
+            row_heights.append(Inches(0.46 if max(map(len, prepared), default=1) == 1 else 0.66))
+
+        hdr_h = Inches(0.46 if max(map(len, header_lines), default=1) == 1 else 0.62)
+        total = hdr_h + sum(row_heights)
+        if total > avail:
+            raise ValueError("table() 내용이 가용 높이를 넘습니다. 행을 줄이거나 슬라이드를 나누세요.")
+        table_y = y + (avail - total) / 2
+        tbl = s.shapes.add_table(nr, nc, int(M), int(table_y), int(CW), int(total)).table
         tbl.first_row = True
         tbl.rows[0].height = int(hdr_h)
-        for r_ in range(1, nr):
-            tbl.rows[r_].height = int(body_h)
-        if col_ratio:
-            tot = sum(col_ratio)
-            for i, r in enumerate(col_ratio):
-                tbl.columns[i].width = Emu(int(CW * r / tot))
+        for r_, row_h in enumerate(row_heights, 1):
+            tbl.rows[r_].height = int(row_h)
+        for i, width in enumerate(col_widths):
+            tbl.columns[i].width = int(width)
 
         def cell(rr, cc, text, bold, bg, fg, size):
             c = tbl.cell(rr, cc)
@@ -484,19 +641,21 @@ class Deck:
             c.vertical_anchor = MSO_ANCHOR.MIDDLE          # 위로 붙는 것 방지
             c.margin_left = c.margin_right = Emu(109728)   # 0.12in
             c.margin_top = c.margin_bottom = Emu(73152)    # 0.08in
-            p_ = c.text_frame.paragraphs[0]
-            p_.line_spacing = 1.3
-            p_.runs[0].font.name = FONT
-            p_.runs[0].font.size = Pt(size)
-            p_.runs[0].font.bold = bold
-            p_.runs[0].font.color.rgb = fg
+            for p_ in c.text_frame.paragraphs:
+                p_.line_spacing = 1.18
+                for run in p_.runs:
+                    run.font.name = FONT
+                    run.font.size = Pt(size)
+                    run.font.bold = bold
+                    run.font.color.rgb = fg
 
-        for c_, htxt in enumerate(headers):
-            cell(0, c_, htxt, True, WHITE, self.C["key"], T_META)
-        self._rect(s, M, y + hdr_h - Emu(19050), CW, Emu(19050), fill=self.C["key"])
+        for c_, lines in enumerate(header_lines):
+            cell(0, c_, "\n".join(lines), True, WHITE, self.C["key"], T_META)
+        self._rect(s, M, table_y + hdr_h - Emu(19050), CW, Emu(19050), fill=self.C["key"])
         for r_, row in enumerate(rows, 1):
-            for c_, v in enumerate(row):
-                cell(r_, c_, v, False, WHITE if r_ % 2 else self.C["tint"], INK, T_SMALL)
+            for c_, lines in enumerate(body_lines[r_ - 1]):
+                cell(r_, c_, "\n".join(lines), False,
+                     WHITE if r_ % 2 else self.C["tint"], INK, T_SMALL)
         return s
 
     def deflist(self, title, items, eyebrow=None, lead=None):
@@ -512,18 +671,47 @@ class Deck:
         s = self._blank()
         y = self._head(s, title, eyebrow, lead)
         n = max(1, len(items))
-        row = (BOTTOM - y) / n
         lab_w = CW * 0.28
+        body_w = CW - lab_w
+        body_box_pt = body_w / Emu(12700)
+
+        # 서술 길이를 기준으로 줄 수를 판정한다. 렌더러의 한글 폭 차이를 감안해
+        # 안전계수를 두고, 명시적 줄바꿈도 실제 줄 수에 포함한다.
+        line_counts = []
+        for item in items:
+            body = str(item[1])
+            width_lines = math.ceil(measure_pt(body.replace("\n", ""), T_SMALL, False) * 1.12 / body_box_pt)
+            explicit_lines = body.count("\n") + 1
+            line_counts.append(max(1, max(width_lines, explicit_lines)))
+
+        # 정의 목록은 행 간격 자체가 구분 체계다. 한·두 줄 여부에 따라 행 높이가
+        # 달라지면 같은 중요도의 항목이 서로 다른 무게로 보인다. 모든 행을 같은
+        # 높이로 고정하고, 설명은 최대 두 줄까지만 허용한다.
+        overflow = [items[i][0] for i, lines in enumerate(line_counts) if lines > 2]
+        if overflow:
+            raise ValueError(
+                f"deflist 설명은 최대 2줄입니다: {title} / {', '.join(overflow)}. "
+                "문장을 줄이거나 슬라이드를 나누세요."
+            )
+        content_bottom = BOTTOM - Inches(0.12)
+        avail_h = content_bottom - y
+        row_h = avail_h / n
+        min_two_line_h = Pt(T_SMALL * 1.32 * 2) + Inches(0.06)
+        if max(line_counts) == 2 and row_h < min_two_line_h:
+            raise ValueError(
+                "deflist 내용이 물리 한계를 넘습니다. 글자를 줄이지 말고 슬라이드를 나누세요."
+            )
         # 라벨이 폭을 넘으면 두 줄이 되어 다음 행과 겹친다. 실측으로 자동 축소.
         lab_box = (lab_w - Inches(0.2)) / Emu(12700)
         lsize = T_BODY
         widest = max((it[0] for it in items), key=lambda t: measure_pt(t, T_BODY, True))
         while lsize > 13 and measure_pt(widest, lsize, True) > lab_box:
             lsize -= 1
+        ry = y
         for i, item in enumerate(items):
             lab, body = item[0], item[1]
             url = item[2] if len(item) > 2 else None
-            ry = y + row * i
+            row = row_h
             if i:
                 self._rect(s, M, ry, CW, Emu(9525), fill=self.C["rule"])
             # 라벨과 서술은 글자 크기·행간이 달라서 top 정렬하면 첫 줄 baseline이
@@ -532,10 +720,22 @@ class Deck:
             self._txt(s, M, ry, lab_w - Inches(0.2), row,
                       [(lab, lsize, True, self.C["key"]) if not url
                        else (lab, lsize, True, self.C["key"], url)],
-                      anchor=MSO_ANCHOR.MIDDLE)
-            self._txt(s, M + lab_w, ry, CW - lab_w, row,
-                      [(body, T_SMALL, False, INK)], ls=1.45,
-                      anchor=MSO_ANCHOR.MIDDLE)
+                      anchor=MSO_ANCHOR.MIDDLE, ls=None)
+            if line_counts[i] == 1:
+                # 한 줄은 행 전체 높이에서 세로 중앙에 둔다. 종전에는 0.48in
+                # 박스를 가운데 놓고 그 안에서 top 정렬해 글자가 위에 붙었다.
+                # 행 전체는 충분히 깊어 LibreOffice의 얕은 middle-box 결함도 피한다.
+                self._txt(
+                    s, M + lab_w, ry, CW - lab_w, row,
+                    [(body, T_SMALL, False, INK)], ls=None,
+                    anchor=MSO_ANCHOR.MIDDLE,
+                )
+            else:
+                # 두 줄은 고정 1.32 행간을 유지한 채 행 전체에서 중앙 정렬한다.
+                self._txt(s, M + lab_w, ry, CW - lab_w, row,
+                          [(body, T_SMALL, False, INK)], ls=1.32,
+                          anchor=MSO_ANCHOR.MIDDLE)
+            ry += row
         return s
 
     def tree(self, title, groups, eyebrow=None, lead=None, orientation="row", hot=None):
@@ -619,11 +819,18 @@ class Deck:
         rows = (n + per_row - 1) // per_row
         arrow = Inches(0.42); g = Inches(0.1)
         cw = (CW - (arrow + g * 2) * (per_row - 1)) / per_row
-        avail = BOTTOM - y0 - (Inches(0.55) if loop else 0)
+        avail = BOTTOM - y0
         vgap = Inches(0.5)
-        bh = min(Inches(1.35), (avail - vgap * (rows - 1)) / rows)
-        # 한 행뿐이면 남는 세로의 중앙에 놓는다(위에 붙어 아래가 비는 것 방지)
-        top = y0 + (avail - bh) / 2 if rows == 1 else y0
+        # 리드 유무에 따라 _head()가 반환한 y0가 달라진다. 카드와 루프를 각각
+        # 고정 좌표로 두지 않고 하나의 그룹으로 계산해야 보조문구가 추가돼도
+        # 푸터를 침범하지 않는다.
+        loop_h = Inches(0.72) if loop else 0
+        cards_avail = avail - loop_h - vgap * (rows - 1)
+        if cards_avail < Inches(0.9) * rows:
+            raise ValueError("flow() 내용이 가용 높이를 넘습니다. 단계를 줄이거나 슬라이드를 나누세요.")
+        bh = min(Inches(1.35), cards_avail / rows)
+        group_h = bh * rows + vgap * (rows - 1) + loop_h
+        top = y0 + (avail - group_h) / 2
 
         last_xy = None
         for i, (head, desc) in enumerate(steps):
@@ -631,13 +838,33 @@ class Deck:
             x = M + (cw + arrow + g * 2) * c
             y = top + (bh + vgap) * r
             self._rect(s, x, y, cw, bh, fill=self.C["tint"], radius=True)
-            # 제목 2줄까지 허용하고 설명을 그 아래로 — 겹침 방지
-            self._txt(s, x + Inches(0.14), y + bh / 2 - Inches(0.56), cw - Inches(0.28),
-                      Inches(0.62), [(f"{i+1}. {head}", T_SMALL, True, INK)],
-                      align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.BOTTOM, ls=1.15)
-            self._txt(s, x + Inches(0.14), y + bh / 2 + Inches(0.02), cw - Inches(0.28),
-                      Inches(0.6), [(desc, T_META, False, MUTE)],
-                      align=PP_ALIGN.CENTER, ls=1.25)
+            # 카드 안의 제목·설명을 고정된 위/아래 반쪽에 각각 넣으면 한 줄 제목과
+            # 두 줄 설명처럼 줄 수가 달라질 때 텍스트 묶음이 카드 아래로 쏠린다.
+            # 실제 줄 수로 두 박스의 높이를 구하고, 둘을 하나의 stack으로 본 뒤
+            # 카드 칸 자체의 세로 중앙에 둔다. 보조 문구가 늘어나도 카드 바깥 배치와
+            # 카드 안 정렬이 서로 독립적으로 반응해야 한다.
+            inner_x = x + Inches(0.14)
+            inner_w = cw - Inches(0.28)
+            inner_w_pt = inner_w / Emu(12700)
+            head_parts = wrap_text(f"{i+1}. {head}", T_SMALL, inner_w_pt,
+                                   bold=True, max_lines=2)
+            desc_parts = wrap_text(desc, T_META, inner_w_pt, max_lines=2)
+            head_h = Inches(0.26 + 0.22 * (len(head_parts) - 1))
+            desc_h = Inches(0.22 + 0.18 * (len(desc_parts) - 1))
+            inner_gap = Inches(0.07)
+            stack_h = head_h + inner_gap + desc_h
+            if stack_h > bh - Inches(0.16):
+                raise ValueError(
+                    "flow() 카드 안의 제목·설명이 칸 높이를 넘습니다. "
+                    "문장을 줄이거나 단계를 나누세요."
+                )
+            stack_y = y + (bh - stack_h) / 2
+            self._txt(s, inner_x, stack_y, inner_w, head_h,
+                      [("\n".join(head_parts), T_SMALL, True, INK)],
+                      align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, ls=1.15)
+            self._txt(s, inner_x, stack_y + head_h + inner_gap, inner_w, desc_h,
+                      [("\n".join(desc_parts), T_META, False, MUTE)],
+                      align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, ls=1.25)
             if c < per_row - 1 and i < n - 1:
                 self._txt(s, x + cw + g, y + bh / 2 - Inches(0.2), arrow, Inches(0.4),
                           [("→", 20, False, self.C["sub"])], align=PP_ALIGN.CENTER)
@@ -646,7 +873,7 @@ class Deck:
 
         if loop and last_xy:
             lx, ly = last_xy
-            by = ly + bh + Inches(0.3)
+            by = ly + bh + Inches(0.28)
             self._rect(s, M + cw / 2, by, lx + cw / 2 - (M + cw / 2), Emu(19050),
                        fill=self.C["sub"])
             self._rect(s, M + cw / 2, ly + bh, Emu(19050), by - (ly + bh), fill=self.C["sub"])
@@ -822,38 +1049,156 @@ class Deck:
                       [(name, T_SMALL, hot, INK if hot else MUTE)], align=PP_ALIGN.CENTER)
         return s
 
+    def phone_detail(self, title, image, items, eyebrow="MOBILE FLOW", lead=None):
+        """세로형 앱 화면 1개와 설명 2~4개를 크게 보여준다.
+
+        여러 모바일 화면을 한 장의 shots() 갤러리에 넣으면 화면과 글자가 동시에
+        작아진다. 화면별 상호작용을 설명해야 할 때는 한 화면을 한 슬라이드에 두고,
+        헤더·리드가 차지한 실제 높이 이후의 가용 영역을 다시 계산한다.
+        items = [(라벨, 설명), ...]
+        """
+        if not os.path.exists(image):
+            raise ValueError(f"phone_detail() 이미지가 없습니다: {image}")
+        if not 2 <= len(items) <= 4:
+            raise ValueError("phone_detail() 설명은 2~4개여야 합니다.")
+
+        s = self._blank()
+        y = self._head(s, title, eyebrow, lead) + Inches(0.14)
+        content_h = BOTTOM - y - Inches(0.08)
+        if content_h < Inches(2.6):
+            raise ValueError("phone_detail() 내용 높이가 부족합니다. 제목·리드를 줄이세요.")
+
+        phone_zone_w = Inches(3.55)
+        self._rect(s, M, y, phone_zone_w, content_h, fill=self.C["tint"])
+        pic = s.shapes.add_picture(image, 0, 0)
+        max_w = phone_zone_w - Inches(0.24)
+        max_h = content_h - Inches(0.24)
+        scale = min(max_w / pic.width, max_h / pic.height)
+        pic.width = int(pic.width * scale)
+        pic.height = int(pic.height * scale)
+        pic.left = int(M + (phone_zone_w - pic.width) / 2)
+        pic.top = int(y + (content_h - pic.height) / 2)
+
+        text_x = M + phone_zone_w + Inches(0.55)
+        text_w = M + CW - text_x
+        row_h = content_h / len(items)
+        for idx, (label, body) in enumerate(items):
+            row_y = y + row_h * idx
+            if idx:
+                self._rect(s, text_x, row_y, text_w, Emu(9525), fill=self.C["rule"])
+            self._txt(
+                s, text_x, row_y + Inches(0.08), Inches(2.0), row_h - Inches(0.16),
+                [(label, 16, True, self.C["key"])],
+                anchor=MSO_ANCHOR.MIDDLE, ls=1.0,
+            )
+            self._txt(
+                s, text_x + Inches(2.15), row_y + Inches(0.08),
+                text_w - Inches(2.15), row_h - Inches(0.16),
+                [(body, 14, False, INK)],
+                anchor=MSO_ANCHOR.MIDDLE, ls=1.28,
+            )
+        return s
+
     def shots(self, title, images, captions=None, eyebrow=None, lead=None):
-        """스크린샷 그리드. images = [경로, ...] 최대 5."""
+        """스크린샷 그리드. images = [경로, ...] 최대 5.
+
+        세로로 긴 문서 이미지는 상·하 절반을 좌우 패널로 자동 분할한다.
+        캡션 영역을 먼저 예약해 이미지나 설명이 푸터 아래로 내려가지 않게 한다.
+        """
         s = self._blank()
         y0 = self._head(s, title, eyebrow, lead)
+        # 헤더가 반환한 콘텐츠 시작점에 이미지를 바로 붙이면 가로형 배너처럼
+        # 상단 경계가 강한 화면은 리드 문장과 한 덩어리로 보인다. 이미지 슬라이드는
+        # 본문 목록보다 시각 무게가 크므로 별도 호흡을 둔다.
+        y0 += Inches(0.16)
         imgs = [p for p in images if os.path.exists(p)][:5]
         if not imgs:
             self._txt(s, M, y0, CW, Inches(0.5),
                       [("(이미지 없음)", T_BODY, False, MUTE)])
             return s
-        n = len(imgs); g = Inches(0.3)
-        cw = (CW - g * (n - 1)) / n
-        avail_h = BOTTOM - y0 - Inches(0.4)
+        # 단일 원본은 긴 문서형 이미지로 판단해 상→하 순서로 2~5조각 낸다.
+        # 여러 앱 화면을 넣은 갤러리는 원칙적으로 유지하되, 세로비 3:1 이상의
+        # 극단적인 스크롤 캡처만 자리가 있을 때 상·하 2패널로 나눈다.
+        from PIL import Image
+        ratios = []
+        for path in imgs:
+            try:
+                with Image.open(path) as im:
+                    ratios.append(im.height / max(1, im.width))
+            except Exception:
+                ratios.append(1.0)
+        if len(imgs) >= 3 and all(ratio >= 1.65 for ratio in ratios):
+            raise ValueError(
+                "shots()에 세로형 모바일 화면 3개 이상을 넣을 수 없습니다. "
+                "화면별 phone_detail() 슬라이드로 나누세요."
+            )
+        groups = []
+        panel_count = 0
         for i, path in enumerate(imgs):
-            x = M + (cw + g) * i
-            pic = s.shapes.add_picture(path, int(x), int(y0), width=int(cw))
-            if pic.height > avail_h:
-                ratio = avail_h / pic.height
-                pic.height = int(avail_h); pic.width = int(pic.width * ratio)
-                pic.left = int(x + (cw - pic.width) / 2)
+            ratio = ratios[i]
+            remaining_images = len(imgs) - i - 1
+            slots = max(1, 5 - panel_count - remaining_images)
+            if len(imgs) == 1:
+                parts_n = min(slots, max(1, math.ceil(ratio / 1.65)))
+            elif ratio >= 3.0 and slots >= 2:
+                parts_n = 2
+            else:
+                parts_n = 1
+            part_paths = []
+            if parts_n == 1:
+                part_paths = [path]
+            else:
+                with Image.open(path) as im:
+                    for part_idx in range(parts_n):
+                        top = round(im.height * part_idx / parts_n)
+                        bottom = round(im.height * (part_idx + 1) / parts_n)
+                        cropped = im.crop((0, top, im.width, bottom))
+                        tmp = tempfile.NamedTemporaryFile(
+                            suffix=".png", prefix="deck-shot-", delete=False
+                        )
+                        tmp.close()
+                        cropped.save(tmp.name, format="PNG")
+                        self._temp_files.append(tmp.name)
+                        part_paths.append(tmp.name)
+            groups.append((
+                part_paths,
+                captions[i] if captions and i < len(captions) else "",
+            ))
+            panel_count += len(part_paths)
+
+        g = Inches(0.3)
+        cw = (CW - g * (panel_count - 1)) / panel_count
+        caption_h = Inches(0.3) if any(group[1] for group in groups) else 0
+        caption_gap = Inches(0.14) if caption_h else 0
+        avail_h = BOTTOM - y0 - caption_gap - caption_h
+        panel_idx = 0
+        for part_paths, caption in groups:
+            group_start = panel_idx
+            for path in part_paths:
+                x = M + (cw + g) * panel_idx
+                pic = s.shapes.add_picture(path, int(x), int(y0), width=int(cw))
+                if pic.height > avail_h:
+                    ratio = avail_h / pic.height
+                    pic.height = int(avail_h); pic.width = int(pic.width * ratio)
+                    pic.left = int(x + (cw - pic.width) / 2)
+                panel_idx += 1
+
             # 흰 배경 스크린샷은 흰 슬라이드에 얹으면 경계가 사라진다.
             # 이미지 뒤에 틴트 배킹을 깔아 면을 만든다(§4 목업 예외).
-            pad = Inches(0.1)
-            bg = self._rect(s, pic.left - pad, pic.top - pad,
-                            pic.width + pad * 2, pic.height + pad * 2, fill=self.C["tint"])
-            s.shapes._spTree.remove(bg._element)
-            s.shapes._spTree.insert(2, bg._element)      # 이미지 뒤로 보낸다
-            if captions and i < len(captions):
-                # 고정 y가 아니라 이미지 실제 하단 기준. 가로로 긴 이미지에서
-                # 캡션이 뚝 떨어져 뜨던 버그.
-                self._txt(s, pic.left, pic.top + pic.height + Inches(0.22),
-                          pic.width, Inches(0.3),
-                          [(captions[i], T_META, False, MUTE)], align=PP_ALIGN.CENTER)
+                pad = Inches(0.1)
+                bg = self._rect(s, pic.left - pad, pic.top - pad,
+                                pic.width + pad * 2, pic.height + pad * 2, fill=self.C["tint"])
+                s.shapes._spTree.remove(bg._element)
+                s.shapes._spTree.insert(2, bg._element)  # 이미지 뒤로 보낸다
+
+            if caption:
+                group_end = panel_idx - 1
+                cap_x = M + (cw + g) * group_start
+                cap_w = cw * (group_end - group_start + 1) + g * (group_end - group_start)
+                # 모든 캡션은 푸터 바로 위의 고정 한 줄 영역을 공유한다.
+                self._txt(s, cap_x, BOTTOM - caption_h, cap_w, caption_h,
+                          [(caption, T_META, False, MUTE)], align=PP_ALIGN.CENTER,
+                          anchor=MSO_ANCHOR.MIDDLE, ls=1.0)
         return s
 
     def quote(self, text, attribution, eyebrow=None, sub=""):
@@ -996,9 +1341,17 @@ class Deck:
         # 콘텐츠 하한(BOTTOM)과 2pt밖에 안 떨어져 표 마지막 행을 눌렀다.
         # 메타 줄 우측은 원래 비어 있던 공간이라 선을 하나 줄이면서 자리도 는다.
         self._txt(s, M + CW * 0.40, SH - Inches(0.78), CW * 0.52, Inches(0.3),
-                  [run], align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+                  [run], align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE, ls=None)
         return s
 
     def save(self, path):
-        self.prs.save(path)
+        try:
+            self.prs.save(path)
+        finally:
+            for temp_path in self._temp_files:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+            self._temp_files.clear()
         return path

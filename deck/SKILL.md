@@ -99,11 +99,12 @@ Summarize each slide in one sentence, then select one primary builder. `bullets(
 | composition or share | `chart(kind="donut")` with values in labels |
 | percent complete or coverage | `progress()` |
 | two-axis positioning | `matrix()` |
-| 3-4 equal signals or KPIs | `cards()` |
+| 3-4 equal signals, KPIs or concept words | `cards()` |
 | label plus description pairs | `deflist()` |
 | hierarchy, IA, clusters, layers | `tree()` |
 | 3+ columns and 5+ rows | `table()` |
-| screenshots, mockups, artifacts | `shots()` |
+| screenshots, mockups, artifact galleries | `shots()` |
+| one mobile screen with 2-4 interactions or fields | `phone_detail()` |
 | one memorable claim | `statement()` |
 | before/after or A/B opposition | `compare()` |
 | user/interview voice | `quote()` |
@@ -114,13 +115,20 @@ Summarize each slide in one sentence, then select one primary builder. `bullets(
 Hard limits:
 
 - One primary relationship per slide. Bespoke `compose()` may combine text, native shapes and a real image to express that relationship.
-- `flow()` card titles: Korean 8 chars or English 12 chars; `per_row <= 4`.
-- `cards()` max 4 items.
+- `flow()` card titles: Korean 8 chars or English 12 chars; `per_row <= 4`. If a looping flow crosses the footer, remove steps or split the slide instead of pinning coordinates.
+- `cards()` max 4 items. Pure numbers render at 32pt; if any value is a word, every value drops to 27pt or less. Descriptions: 12 characters with 4 cards, 16 with 3.
+- `table()` cells hold at most 2 lines. Row height follows the content and the whole table is vertically centered; split tables that do not fit.
+- `deflist()` descriptions hold at most 2 lines. A third line raises an error instead of shrinking the text.
+- Body titles prefer one line at the concept size and shrink to 26/30 of it before wrapping. Only titles that still overflow become two lines, and the lead and body move down with them.
+- `shots()` splits a single tall document-style image (height/width >= 1.65) into 2-5 panels. With 3 or more tall mobile screens, use one `phone_detail()` per screen instead of shrinking them into `shots()`.
+- `phone_detail()` takes one vertical screen and 2-4 descriptions.
 - `deflist()` and `tree()` target 6 rows or fewer.
 - `timeline()` max 6 milestones.
 - Donut labels include values, for example `("Decision needed 5", 5)`.
 - A 2-column label/description table is not a table; use `deflist()`.
 - If a source item disappears during reconstruction, stop and add or choose a builder. Do not silently drop content.
+
+Layout fixes never change approved copy. When adjusting spacing, wrapping, font size or builders, do not summarize or embellish titles, leads, figures or descriptions. If content overflows, split the slide or let the builder raise an error. Copy changes need separate approval.
 
 ## 4. Build A New Deck
 
@@ -133,7 +141,8 @@ from deck import Deck
 d = Deck(palette="indigo", footer="Project · Team")
 d.cover("Title", "Subtitle", "Meta")
 d.section("01", "Section Title", "Lead sentence")
-d.statement("One decisive claim", "Supporting context")
+d.statement("One decisive claim", "Supporting context",
+            link_text="Website · example.com", link_url="https://example.com")
 d.cards("Signals", [("Label", "Value", "Description")])
 d.bullets("Fallback Slide", ["Keep bullets short"])
 d.table("Comparison", ["A", "B", "C"], [["x", "y", "z"]])
@@ -146,11 +155,18 @@ d.chart("Mix", [("A 60", 60), ("B 40", 40)], kind="donut")
 d.progress("Progress", [("Spec", 100, "done"), ("QA", 70, "in progress")])
 d.matrix("Positioning", "Effort", "Impact", [("Option A", 0.7, 0.8, True)])
 d.shots("Screens", ["screen.png"], captions=["Main"])
+d.phone_detail("Checkout", "phone.png", [("Label", "Description")], lead="Supporting context")
 d.compare("Before / After", "Before", "After", [("Flow", "manual", "automated")])
 d.quote("The real issue is handoff time.", "Planner interview", sub="User voice")
 d.stat("42", "Validated checks", notes=["Render QA pending"])
 d.gate("Release Gate", [("Spec aligned", "pass", "No drift")])
 d.save("out.pptx")
+```
+
+If you change a layout builder, run the layout regression before building a real deck. It checks title and lead wrapping, row heights, card value hierarchy, table height, image splitting, `phone_detail()` space and the `statement()` bar in PPTX coordinates:
+
+```bash
+python <skill_dir>/scripts/layout_regression.py
 ```
 
 For a regular report use `indigo`, `navy`, or `mono`; for bespoke design derive named palette tokens from the subject brief. If tokens exist, inspect them first and pass a palette dict instead of inventing colors.
@@ -171,9 +187,18 @@ powershell -ExecutionPolicy Bypass -File <skill_dir>\scripts\render-windows.ps1 
 
 Then inspect the PDF or rendered pages. Confirm that text is not clipped, charts have readable labels, screenshots appear, and fonts did not fall back. On macOS, LibreOffice is the repeatable render path; PowerPoint final-open checks are useful when the user will present in PowerPoint.
 
+Render budget (macOS):
+
+- While generating and revising, run only the layout regression and structural checks. Render with LibreOffice only once content and layout are stable.
+- Launch LibreOffice at most twice per task. A render that retried after a transient error counts as both runs.
+- If the first render shows visual defects, fix them all at once, then render one final time only if budget remains.
+- On a process crash, a macOS reopen or recovery prompt, or a font verification failure, stop. Do not relaunch LibreOffice or PowerPoint automatically in the same task; report the static check results and the reason to the user.
+- `render-macos.sh` never falls back to PowerPoint on its own, because PowerPoint can open windows, automation consent prompts and recovery dialogs. Only when the user explicitly asks, run it once with `DECK_ALLOW_POWERPOINT=1 bash <skill_dir>/scripts/render-macos.sh out.pptx`.
+
 ## 6. Codex Compatibility
 
 - Codex file inspection replaces Claude `Read`, `Glob`, and `Bash` tool references.
 - For standalone `.pptx` creation and editing, this skill owns the workflow and `deck/scripts/` runtime.
 - For broad artifact work outside this skill, use the separate `presentations` skill/tool for PowerPoint/Google Slides and `spreadsheets` for workbook/table artifacts.
 - Keep the `$deck` trigger explicit in agent prompts so Codex can route deck work to this skill.
+- On macOS, LibreOffice does not run inside the Codex sandbox. Run `bash <skill_dir>/scripts/render-safe-macos.sh out.pptx` outside the sandbox instead of `render-macos.sh`: it accepts only a `.pptx` input and a `.pdf` output inside one Git project or `~/workspace/<project>/`, rejects symbolic links, retries only a transient LibreOffice error once, and never launches PowerPoint. Approving this command keeps the out-of-sandbox run that narrow.
