@@ -45,7 +45,7 @@ it into images.
 | Existing deck cleanup | title hierarchy, internal padding, border noise, visual consistency |
 
 The committed catalog covers **20 representative slide types**. They are backed
-by 18 reusable builder methods; `chart()` produces three catalog forms.
+by 18 of the 19 reusable builder methods; `chart()` produces three catalog forms.
 
 | Content relationship | Slide types |
 |---|---|
@@ -249,7 +249,7 @@ used as an implementation and review lever.
 | Responsibility axis | Concrete evidence |
 |---|---|
 | Workflow planning | [`deck/SKILL.md`](deck/SKILL.md) defines routing, builder selection, hard limits, and the render-before-delivery contract. |
-| Visual system | [`deck.py`](deck/scripts/deck.py) fixes typography, spacing, palettes, hierarchy, and 18 builder methods. |
+| Visual system | [`deck.py`](deck/scripts/deck.py) fixes typography, spacing, palettes, hierarchy, and 19 builder methods. |
 | Cross-platform development | macOS and Windows dependency/render adapters live under [`deck/scripts/`](deck/scripts). |
 | Quality and release | Unit tests, PowerShell contract checks, CI, a 20-slide PPTX, a 20-page PDF, and a contact sheet are committed as evidence. |
 
