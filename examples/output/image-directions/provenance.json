@@ -1,0 +1,18 @@
+{
+  "tool": "built-in image_gen",
+  "factual_limit": "Generated editorial illustration, not real workspace evidence",
+  "assets": {
+    "photo": {
+      "file": "assets/photo.png",
+      "prompt": "Use case: photorealistic-natural. Asset: image-led PowerPoint presentation hero about editorial slide design and a deck-building tool. Make one photographic wide 16:9 image: overhead candid editorial photograph of a designer's physical workbench with thoughtfully arranged large printed composition studies, one oversized black typographic print sheet with abstract unreadable glyph forms, a tracing paper overlay showing real layout construction lines, red pencil and steel ruler. Warm natural side light, subtle authentic paper fibers, deep charcoal ink and restrained vermilion correction marks; sophisticated independent design studio, tactile imperfect real-world photography, not glossy 3D or stock office. The subjects and papers occupy primarily the right 60%; the left 40% is a dark matte empty desk surface with ample clean negative space for editable white slide title added later. High contrast with visible material texture. No readable text, no brand, no logos, no watermark, no computer, no fake product interface, no robot, no neon gradients. This is an illustrative scene, not documentation of an actual workspace."
+    },
+    "collage": {
+      "file": "assets/collage.png",
+      "prompt": "Use case: illustration-story. Asset: PowerPoint hero for a tool that chooses the shape of information. A wide 16:9 editorial cut-paper collage, not a photograph: oversized ivory paper strips, charcoal ink blocks and a single vivid vermilion construction thread weaving from unordered fragments on the right into an organized sequence. Physical imperfect paper edges, subtle print texture, clearly graphic flat collage with controlled depth; gallery exhibition identity rather than office stock art. Keep left 42% a clean ivory negative-space field for editable dark title added later. Place large composition fragments on right 58%, avoid generic equal cards, avoid icon grids. No text, no letters, no logos, no robots, no computers, no people, no glossy gradients. Express information being composed; do not depict a factual chart or fake data."
+    },
+    "screenprint": {
+      "file": "assets/screenprint.png",
+      "prompt": "Use case: stylized-concept. Asset: PowerPoint image-led hero for editorial slide design. Wide 16:9 expressive handmade two-color screenprint illustration on deep midnight ink-blue paper. On right 58%, a large warm white continuous ribbon-like composition transforms from scattered broad strokes into a precise flowing typographic-free structure, with a restrained saffron circular print mark acting as a visual focal point; slightly misregistered ink, dry brush texture, Japanese/European contemporary printmaking exhibition aesthetic. On left 42%, quiet dark ink-blue negative space for white editable slide headline added later. Flat printmaking illustration, neither photorealistic nor 3D, no generic neon tech gradients, no cards, no stock symbols, no robot, no readable text or letters, no logo, no watermark. The image symbolizes composition and visual rhythm; no factual data implied."
+    }
+  }
+}

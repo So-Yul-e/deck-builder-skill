@@ -10,6 +10,19 @@ examples/output/*
 !examples/output/deck-builder-catalog.pdf
 !examples/output/deck-builder-catalog-contact-sheet.png
 !examples/output/concept-previews-contact-sheet.png
+!examples/output/image-directions/
+examples/output/image-directions/*
+!examples/output/image-directions/photo-candidate-1.png
+!examples/output/image-directions/image-direction-comparison.png
+!examples/output/image-directions/provenance.json
+!examples/output/image-directions/assets/
+examples/output/image-directions/assets/*
+!examples/output/image-directions/assets/photo.png
+!examples/output/image-directions/assets/collage.png
+!examples/output/image-directions/assets/screenprint.png
+!examples/output/art-directions/
+examples/output/art-directions/*
+!examples/output/art-directions/content-led-deck.pptx
 deck/assets/fonts/*.tmp
 
 # Local task notes

@@ -10,22 +10,18 @@
 </p>
 
 <p align="center">
+  <img src="examples/output/image-directions/photo-candidate-1.png" alt="Image-led deck cover using paper, print, and layout sketches as its subject" width="920" />
+</p>
+
+<p align="center"><sub>Deck example with generated, subject-matched imagery; it is not a photograph of a real workspace.</sub></p>
+
+<p align="center">
   <a href="https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml"><img src="https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml/badge.svg" alt="CI status" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code_license-MIT-blue.svg" alt="Code license: MIT" /></a>
 </p>
 
 <p align="center">
   <b>macOS validated</b> · <b>Windows adapter beta</b> · Claude and Codex compatible
-</p>
-
-<p align="center">
-  <img src="examples/output/deck-builder-catalog-contact-sheet.png" alt="Catalog of twenty representative deck slide types" width="920" />
-</p>
-
-<p align="center">
-  <a href="examples/output/deck-builder-catalog.pptx">Editable 20-slide PPTX</a> ·
-  <a href="examples/output/deck-builder-catalog.pdf">Validated 20-page PDF</a> ·
-  <a href="examples/output/deck-builder-catalog-contact-sheet.png">Full-size contact sheet</a>
 </p>
 
 ---
@@ -46,6 +42,16 @@ it into images.
 
 The committed catalog covers **20 representative slide types**. They are backed
 by 18 of the 19 reusable builder methods; `chart()` produces three catalog forms.
+
+<p align="center">
+  <img src="examples/output/deck-builder-catalog-contact-sheet.png" alt="Catalog of twenty representative deck slide types" width="920" />
+</p>
+
+<p align="center">
+  <a href="examples/output/deck-builder-catalog.pptx">Editable 20-slide PPTX</a> ·
+  <a href="examples/output/deck-builder-catalog.pdf">Validated 20-page PDF</a> ·
+  <a href="examples/output/deck-builder-catalog-contact-sheet.png">Full-size contact sheet</a>
+</p>
 
 | Content relationship | Slide types |
 |---|---|
@@ -138,6 +144,15 @@ Four concepts share the same builders and content: `report` (default), `poster`,
 Reproduce the previews with `python3 examples/build_concept_previews.py`. It writes one PPTX per concept to `examples/output/concepts/`. See [concept guidance](deck/references/concepts.md).
 
 ## Image Directions and Updates
+
+<p align="center">
+  <img src="examples/output/image-directions/image-direction-comparison.png" alt="The same cover, body, and data content in photographic, collage, and screenprint directions" width="920" />
+</p>
+
+These previews keep the same content while changing imagery and composition. The
+subject-matched scenes are generated illustrations documented in the
+[provenance record](examples/output/image-directions/provenance.json), not photos
+of a real workspace or evidence of user outcomes.
 
 **Image generation is optional.** Prefer the user's photographs, product assets,
 screenshots, and existing images with verified reuse terms. Generate only when the

@@ -10,22 +10,18 @@
 </p>
 
 <p align="center">
+  <img src="examples/output/image-directions/photo-candidate-1.png" alt="종이·인쇄물·레이아웃 스케치를 소재로 구성한 이미지 중심 덱 표지 예시" width="920" />
+</p>
+
+<p align="center"><sub>주제에 맞춰 생성한 연출 이미지를 사용한 덱 예시입니다. 실제 작업실 사진은 아닙니다.</sub></p>
+
+<p align="center">
   <a href="https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml"><img src="https://github.com/So-Yul-e/deck-builder-skill/actions/workflows/ci.yml/badge.svg" alt="CI 상태" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code_license-MIT-blue.svg" alt="코드 라이선스: MIT" /></a>
 </p>
 
 <p align="center">
   <b>macOS 검증 완료</b> · <b>Windows 어댑터 beta</b> · Claude와 Codex 호환
-</p>
-
-<p align="center">
-  <img src="examples/output/deck-builder-catalog-contact-sheet.png" alt="대표 슬라이드 20종 카탈로그" width="920" />
-</p>
-
-<p align="center">
-  <a href="examples/output/deck-builder-catalog.pptx">편집 가능한 20장 PPTX</a> ·
-  <a href="examples/output/deck-builder-catalog.pdf">검증된 20페이지 PDF</a> ·
-  <a href="examples/output/deck-builder-catalog-contact-sheet.png">전체 카탈로그 이미지</a>
 </p>
 
 ---
@@ -45,6 +41,16 @@
 
 저장소의 카탈로그는 **대표 슬라이드 20종**을 포함합니다. 19개 builder
 메서드 중 18개를 사용하며, `chart()`가 세 가지 차트 형식을 만듭니다.
+
+<p align="center">
+  <img src="examples/output/deck-builder-catalog-contact-sheet.png" alt="대표 슬라이드 20종 카탈로그" width="920" />
+</p>
+
+<p align="center">
+  <a href="examples/output/deck-builder-catalog.pptx">편집 가능한 20장 PPTX</a> ·
+  <a href="examples/output/deck-builder-catalog.pdf">검증된 20페이지 PDF</a> ·
+  <a href="examples/output/deck-builder-catalog-contact-sheet.png">전체 카탈로그 이미지</a>
+</p>
 
 | 콘텐츠 관계 | 슬라이드 형식 |
 |---|---|
@@ -136,6 +142,14 @@ $deck으로 이 PPTX의 내용과 박스 위치는 바꾸지 말고 시각적으
 미리보기는 `python3 examples/build_concept_previews.py`로 재현합니다. 시안마다 PPTX 하나를 `examples/output/concepts/`에 만듭니다. 기준은 [시안 가이드](deck/references/concepts.md)에 있습니다.
 
 ## 이미지 방향 선택과 업데이트
+
+<p align="center">
+  <img src="examples/output/image-directions/image-direction-comparison.png" alt="같은 내용에 사진풍·콜라주·스크린프린트 연출을 적용한 표지·본문·데이터 비교" width="920" />
+</p>
+
+위 이미지는 같은 내용을 세 가지 이미지·배치 방향으로 만든 예시입니다. 소재 이미지는
+[생성 기록](examples/output/image-directions/provenance.json)에 남긴 연출 이미지이며
+실제 작업 환경이나 성과를 증명하는 사진은 아닙니다.
 
 **이미지 생성은 선택 사항입니다.** 사용자가 가진 사진·제품 이미지·스크린샷과
 사용 조건을 확인한 기존 이미지를 먼저 활용합니다. 사용자가 생성을 원하거나,
