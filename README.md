@@ -127,6 +127,16 @@ Use $deck to create an executive project report with a roadmap, KPIs, and releas
 Use $deck to polish this PPTX without changing its content or moving its layout boxes.
 ```
 
+## Visual Concepts
+
+Four concepts share the same builders and content: `report` (default), `poster`, `editorial`, and `showcase`. Typography, color, and card treatment change; the claims do not. For a new deck the agent renders cover, body, and data previews in up to three concepts and waits for your choice. Naming a concept or asking for automatic selection skips this step.
+
+<p align="center">
+  <img src="examples/output/concept-previews-contact-sheet.png" alt="The same cover, card, and chart slides rendered in the report, poster, editorial, and showcase concepts" width="920" />
+</p>
+
+Reproduce the previews with `python3 examples/build_concept_previews.py`. It writes one PPTX per concept to `examples/output/concepts/`. See [concept guidance](deck/references/concepts.md).
+
 ## Image Directions and Updates
 
 **Image generation is optional.** Prefer the user's photographs, product assets,

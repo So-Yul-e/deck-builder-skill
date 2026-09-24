@@ -125,6 +125,16 @@ $deck으로 로드맵, KPI, 릴리즈 게이트가 포함된 임원 프로젝트
 $deck으로 이 PPTX의 내용과 박스 위치는 바꾸지 말고 시각적으로 정리해줘.
 ```
 
+## 디자인 시안
+
+네 가지 시안이 같은 빌더와 같은 내용을 씁니다. `report`(기본), `poster`, `editorial`, `showcase`입니다. 글꼴 크기, 색, 카드 표현이 달라지고 주장은 그대로입니다. 새 덱을 만들 때 에이전트는 최대 세 시안으로 표지·본문·데이터 미리보기를 렌더한 뒤 사용자의 선택을 기다립니다. 시안을 직접 지정하거나 자동 선택을 요청하면 이 단계를 건너뜁니다.
+
+<p align="center">
+  <img src="examples/output/concept-previews-contact-sheet.png" alt="같은 표지·카드·차트 슬라이드를 report, poster, editorial, showcase 시안으로 렌더한 비교" width="920" />
+</p>
+
+미리보기는 `python3 examples/build_concept_previews.py`로 재현합니다. 시안마다 PPTX 하나를 `examples/output/concepts/`에 만듭니다. 기준은 [시안 가이드](deck/references/concepts.md)에 있습니다.
+
 ## 이미지 방향 선택과 업데이트
 
 **이미지 생성은 선택 사항입니다.** 사용자가 가진 사진·제품 이미지·스크린샷과
